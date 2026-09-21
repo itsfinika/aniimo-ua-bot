@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+coverage/
+*.db
+*.db-journal
+.idea/
+.vscode/
+
+# Runtime artifacts (process logs and pid file)
+*.log
+bot_pid.txt
+
+# Nightly SQLite snapshots written next to the database (services/db_backup.js)
+backups/
+*.db.tmp

@@ -1,0 +1,8 @@
+# CODEOWNERS for aniimo-ua-bot
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositories-permissions-and-team-access/about-code-owners
+#
+# These owners are automatically requested for review when someone
+# opens a pull request that modifies the matching files.
+
+# Default owners for everything in the repo
+*   @itsfinika

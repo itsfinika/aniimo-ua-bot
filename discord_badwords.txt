@@ -1,0 +1,18 @@
+# Discord bad-word filter list for the Aniimo UA moderation bot.
+#
+# One blocked word or phrase per line. Lines starting with "#" and blank lines
+# are ignored, so you can comment and group terms freely. Matching is
+# case-insensitive and uses Unicode-aware word boundaries, so a term here only
+# matches a WHOLE word -- e.g. "ass" would NOT flag "class" or "Кассандра".
+#
+# Keep this list CONSERVATIVE to avoid blocking normal Ukrainian / Russian /
+# English words. Members who already have the "Manage Messages" permission
+# (mods/admins) bypass this filter.
+#
+# Changes take effect after the bot restarts.
+# ----------------------------------------------------------------------------
+# Add your server-specific terms below this line.
+
+nigger
+faggot
+retard

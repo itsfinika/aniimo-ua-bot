@@ -1,0 +1,56 @@
+# Continuous integration for the Aniimo UA submission bot.
+#
+# Runs on every push to main and every pull request targeting main; a new push
+# to the same ref cancels any in-flight run. The single `check` job:
+#   1. installs the locked dependency set (also proves package-lock.json resolves),
+#   2. imports the entrypoint — the JavaScript analogue of a build, catching
+#      syntax and import-time errors across the whole module graph,
+#   3. runs the unit tests (pure moderation logic, config parsers, collectors,
+#      the publisher/album paths, DB backup),
+#   4. lints with ESLint.
+#
+# The bot stores its data in a local SQLite file (DATABASE_PATH, default
+# bot.db) through Node's built-in node:sqlite, so CI needs no database service
+# container and no native build toolchain — there is nothing to provision.
+# Postgres is intentionally not part of this pipeline.
+#
+# Formatting is intentionally not enforced here.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: build / lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (import check)
+        run: node --input-type=module -e "await import('./main.js')"
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint

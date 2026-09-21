@@ -1,0 +1,34 @@
+# Production composition for the Aniimo UA submission bot.
+#
+# Pulls the image CI built and pushed to GHCR (BOT_IMAGE = the pinned
+# sha-<commit> tag, supplied by the deploy job / .env.prod), loads runtime
+# configuration from .env.prod, and keeps the SQLite database on a named volume
+# so it survives image upgrades. The bot talks to Telegram via long polling, so
+# it publishes no ports and needs no reverse proxy, domain, or database service.
+#
+# The project name is pinned so the `botdata` volume is always
+# `aniimo-ua-bot_botdata`, independent of the deploy directory's name —
+# otherwise moving/renaming the deploy dir would spawn a fresh empty volume and
+# silently strand the existing SQLite database.
+name: aniimo-ua-bot
+
+services:
+  bot:
+    image: ${BOT_IMAGE:?BOT_IMAGE must be set (the GHCR image ref to deploy)}
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      # Keep the DB on the persistent volume regardless of .env.prod.
+      DATABASE_PATH: /data/bot.db
+    volumes:
+      - botdata:/data
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  botdata:

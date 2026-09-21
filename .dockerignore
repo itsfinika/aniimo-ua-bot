@@ -1,0 +1,37 @@
+# Keep the build context small and never bake secrets or local state into the
+# image. NOTE: prompts/*.md and locales/* are runtime assets — do not exclude
+# them (only the top-level README is dropped below).
+.git
+.github
+.gitignore
+.dockerignore
+README.md
+
+# Local environment / secrets / databases.
+.env
+.env.*
+*.db
+*.db-journal
+*.db.tmp
+backups/
+
+# Installed dependencies (the image runs `npm ci` itself) and tooling caches.
+node_modules/
+coverage/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Tests and deploy tooling (not needed inside the image).
+tests/
+vitest.config.js
+eslint.config.js
+Dockerfile
+docker-compose*.yml
+scripts/
+.idea/
+.vscode/

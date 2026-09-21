@@ -1,0 +1,308 @@
+# Build the bot image, push it to GHCR, and roll it out on a Hetzner server.
+#
+# Flow: push to main -> build & push ghcr.io/<owner>/<repo>:sha-<commit> -> SSH
+# to the server, pull the pinned image, `docker compose up -d`, verify the bot
+# container stays up. The bot uses Telegram long polling: no inbound ports, no
+# domain, no Postgres — data lives in a SQLite file on the `botdata` volume.
+#
+# --- Required repository secrets -------------------------------------------
+#   HETZNER_HOST        server IP or hostname
+#   HETZNER_USER        SSH user (e.g. deploy or root)
+#   HETZNER_SSH_KEY     private SSH key (PEM, no passphrase) for that user
+#   BOT_TOKEN           Telegram bot token
+#   ADMIN_CHAT_ID       moderation chat id
+#   PUBLISH_CHAT_ID     publish channel/chat id
+#   ADMIN_USER_IDS      comma-separated Telegram admin user ids
+# --- Optional secrets (app has sane defaults; set only to override) --------
+#   GEMINI_API_KEY      enables the AI news collector/scheduler
+#   GEMINI_MODEL, OFFICIAL_NEWS_URL, OFFICIAL_NEWS_API_URL, OFFICIAL_NEWS_REGION,
+#   NEWS_CHECK_INTERVAL_MINUTES, ARTICLE_TIMEZONE, SUBMISSION_COOLDOWN_SECONDS
+#   ENABLE_TELEGRAM_MODERATION       "true" enables group-chat moderation
+#   TELEGRAM_MODERATION_CHAT_IDS     comma-separated supergroup ids to moderate
+#   TELEGRAM_MOD_LOG_CHAT_ID         chat for moderation logs/reports
+#                                    (defaults to ADMIN_CHAT_ID)
+#   TELEGRAM_LINK_ALLOWLIST          allowed t.me links (empty = block all)
+#   TELEGRAM_WELCOME_DELETE_SECONDS  welcome auto-delete delay, default 60
+#   ENABLE_DATABASE_BACKUP           "false" disables the nightly DB snapshot
+#                                    written to /data/backups (default on)
+#   DATABASE_BACKUP_HOUR             local hour (0-23) of the backup, default 4
+#   DATABASE_BACKUP_KEEP             how many snapshots to keep, default 14
+#   Submission anti-spam, cross-source dedup, the Discord module, and every news
+#   source (Steam / Bluesky / YouTube / Reddit / Aniimo Tools / the "Аніімо тижня"
+#   wiki rubric / fan-art digest) are ALSO forwarded — set the matching secret to enable/tune one. See
+#   .env.example for the full list and defaults; unset secrets keep app defaults.
+#   HETZNER_SSH_PORT    defaults to 22
+#   HETZNER_DEPLOY_DIR  defaults to /opt/aniimo-ua-bot
+#   HETZNER_KNOWN_HOSTS the server's known_hosts line(s); if set, the host key
+#                       is pinned out-of-band instead of trust-on-first-use via
+#                       ssh-keyscan. Get it with: ssh-keyscan -H <host>
+# GITHUB_TOKEN is provided automatically; it pushes the image to GHCR and is
+# used (ephemerally) by the server to pull it during this run.
+#
+# Every non-empty value above is upserted into .env.prod on the server; keys
+# you do not set are left untouched, so you may instead manage .env.prod by
+# hand on the box and set only the SSH secrets here.
+#
+# NOTE: because an empty value is skipped, DELETING a secret does NOT remove the
+# key from .env.prod — the server keeps the last value it was given, and the
+# app's own default never takes over. To go back to a code default, edit
+# .env.prod on the box; to change a value, set the secret and re-run this
+# workflow (secrets are only read at deploy time).
+#
+# --- One-time server setup -------------------------------------------------
+#   1. Install Docker Engine + the compose plugin.
+#   2. The deploy dir, .env.prod, and docker-compose.prod.yml are created and
+#      shipped automatically on each deploy — no manual file creation needed.
+#   3. If the GHCR package is private, ensure this repo's GITHUB_TOKEN may read
+#      it (Package settings -> Manage Actions access), or pull will 403.
+
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute image reference
+        id: image
+        run: |
+          repo="${GITHUB_REPOSITORY,,}"            # GHCR requires a lowercase path
+          echo "name=ghcr.io/${repo}" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/${repo}:sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.ref }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Hetzner
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ship compose file & roll out over SSH
+        env:
+          SSH_HOST: ${{ secrets.HETZNER_HOST }}
+          SSH_USER: ${{ secrets.HETZNER_USER }}
+          SSH_PORT: ${{ secrets.HETZNER_SSH_PORT != '' && secrets.HETZNER_SSH_PORT || '22' }}
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
+          DEPLOY_DIR: ${{ secrets.HETZNER_DEPLOY_DIR != '' && secrets.HETZNER_DEPLOY_DIR || '/opt/aniimo-ua-bot' }}
+          IMAGE: ${{ needs.build-and-push.outputs.image }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Bot runtime config -> .env.prod on the server (empty -> app default).
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          PUBLISH_CHAT_ID: ${{ secrets.PUBLISH_CHAT_ID }}
+          ADMIN_USER_IDS: ${{ secrets.ADMIN_USER_IDS }}
+          SUBMISSION_COOLDOWN_SECONDS: ${{ secrets.SUBMISSION_COOLDOWN_SECONDS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          OFFICIAL_NEWS_URL: ${{ secrets.OFFICIAL_NEWS_URL }}
+          OFFICIAL_NEWS_API_URL: ${{ secrets.OFFICIAL_NEWS_API_URL }}
+          OFFICIAL_NEWS_REGION: ${{ secrets.OFFICIAL_NEWS_REGION }}
+          NEWS_CHECK_INTERVAL_MINUTES: ${{ secrets.NEWS_CHECK_INTERVAL_MINUTES }}
+          ARTICLE_TIMEZONE: ${{ secrets.ARTICLE_TIMEZONE }}
+          ENABLE_TELEGRAM_MODERATION: ${{ secrets.ENABLE_TELEGRAM_MODERATION }}
+          TELEGRAM_MODERATION_CHAT_IDS: ${{ secrets.TELEGRAM_MODERATION_CHAT_IDS }}
+          TELEGRAM_MOD_LOG_CHAT_ID: ${{ secrets.TELEGRAM_MOD_LOG_CHAT_ID }}
+          TELEGRAM_LINK_ALLOWLIST: ${{ secrets.TELEGRAM_LINK_ALLOWLIST }}
+          TELEGRAM_WELCOME_DELETE_SECONDS: ${{ secrets.TELEGRAM_WELCOME_DELETE_SECONDS }}
+          ENABLE_DATABASE_BACKUP: ${{ secrets.ENABLE_DATABASE_BACKUP }}
+          DATABASE_BACKUP_HOUR: ${{ secrets.DATABASE_BACKUP_HOUR }}
+          DATABASE_BACKUP_KEEP: ${{ secrets.DATABASE_BACKUP_KEEP }}
+          # Submission anti-spam + moderation-queue pacing.
+          MIN_SUBMISSION_TEXT_WORDS: ${{ secrets.MIN_SUBMISSION_TEXT_WORDS }}
+          MIN_SUBMISSION_TEXT_CHARS: ${{ secrets.MIN_SUBMISSION_TEXT_CHARS }}
+          MODERATION_SEND_INTERVAL_SECONDS: ${{ secrets.MODERATION_SEND_INTERVAL_SECONDS }}
+          # Cross-source duplicate filter.
+          ENABLE_CROSS_SOURCE_DEDUP: ${{ secrets.ENABLE_CROSS_SOURCE_DEDUP }}
+          CROSS_SOURCE_DEDUP_TITLE_LIMIT: ${{ secrets.CROSS_SOURCE_DEDUP_TITLE_LIMIT }}
+          # Discord moderation module.
+          ENABLE_DISCORD_MODERATION: ${{ secrets.ENABLE_DISCORD_MODERATION }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_MOD_LOG_CHANNEL_ID: ${{ secrets.DISCORD_MOD_LOG_CHANNEL_ID }}
+          DISCORD_ALLOWED_INVITES: ${{ secrets.DISCORD_ALLOWED_INVITES }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_WELCOME_CHANNEL_ID: ${{ secrets.DISCORD_WELCOME_CHANNEL_ID }}
+          DISCORD_CHAT_CHANNEL_ID: ${{ secrets.DISCORD_CHAT_CHANNEL_ID }}
+          DISCORD_LFT_CHANNEL_ID: ${{ secrets.DISCORD_LFT_CHANNEL_ID }}
+          # News sources (all opt-in).
+          ENABLE_STEAM_SOURCE: ${{ secrets.ENABLE_STEAM_SOURCE }}
+          STEAM_FEED_URL: ${{ secrets.STEAM_FEED_URL }}
+          ENABLE_BLUESKY_SOURCE: ${{ secrets.ENABLE_BLUESKY_SOURCE }}
+          BLUESKY_ACTOR: ${{ secrets.BLUESKY_ACTOR }}
+          ENABLE_BLUESKY_VIDEO_DOWNLOAD: ${{ secrets.ENABLE_BLUESKY_VIDEO_DOWNLOAD }}
+          BLUESKY_VIDEO_MAX_MB: ${{ secrets.BLUESKY_VIDEO_MAX_MB }}
+          ENABLE_YOUTUBE_SOURCE: ${{ secrets.ENABLE_YOUTUBE_SOURCE }}
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          YOUTUBE_EXCLUDE_KEYWORDS: ${{ secrets.YOUTUBE_EXCLUDE_KEYWORDS }}
+          ENABLE_YOUTUBE_VIDEO_DOWNLOAD: ${{ secrets.ENABLE_YOUTUBE_VIDEO_DOWNLOAD }}
+          YOUTUBE_VIDEO_MAX_MB: ${{ secrets.YOUTUBE_VIDEO_MAX_MB }}
+          ENABLE_YOUTUBE_PO_TOKEN: ${{ secrets.ENABLE_YOUTUBE_PO_TOKEN }}
+          YOUTUBE_COOKIE: ${{ secrets.YOUTUBE_COOKIE }}
+          ENABLE_REDDIT_SOURCE: ${{ secrets.ENABLE_REDDIT_SOURCE }}
+          REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
+          REDDIT_FLAIRS: ${{ secrets.REDDIT_FLAIRS }}
+          REDDIT_EXCLUDE_KEYWORDS: ${{ secrets.REDDIT_EXCLUDE_KEYWORDS }}
+          ENABLE_ANIIMOTOOLS_SOURCE: ${{ secrets.ENABLE_ANIIMOTOOLS_SOURCE }}
+          ANIIMOTOOLS_FEED_URL: ${{ secrets.ANIIMOTOOLS_FEED_URL }}
+          ENABLE_WIKI_ANIIMO: ${{ secrets.ENABLE_WIKI_ANIIMO }}
+          WIKI_ANIIMO_API_URL: ${{ secrets.WIKI_ANIIMO_API_URL }}
+          WIKI_ANIIMO_SITE_URL: ${{ secrets.WIKI_ANIIMO_SITE_URL }}
+          WIKI_ANIIMO_WEEKDAY: ${{ secrets.WIKI_ANIIMO_WEEKDAY }}
+          WIKI_ANIIMO_HOUR: ${{ secrets.WIKI_ANIIMO_HOUR }}
+          # Weekly fan-art digest.
+          ENABLE_FANART_DIGEST: ${{ secrets.ENABLE_FANART_DIGEST }}
+          FANART_SUBREDDIT: ${{ secrets.FANART_SUBREDDIT }}
+          FANART_FLAIR: ${{ secrets.FANART_FLAIR }}
+          FANART_DIGEST_WEEKDAY: ${{ secrets.FANART_DIGEST_WEEKDAY }}
+          FANART_DIGEST_HOUR: ${{ secrets.FANART_DIGEST_HOUR }}
+          ENABLE_WEEKLY_REPORT: ${{ secrets.ENABLE_WEEKLY_REPORT }}
+          WEEKLY_REPORT_WEEKDAY: ${{ secrets.WEEKLY_REPORT_WEEKDAY }}
+          WEEKLY_REPORT_HOUR: ${{ secrets.WEEKLY_REPORT_HOUR }}
+          FANART_DIGEST_COUNT: ${{ secrets.FANART_DIGEST_COUNT }}
+        run: |
+          set -euo pipefail
+
+          # Ephemeral key + host-key pinning for this run. Prefer an out-of-band
+          # pin (HETZNER_KNOWN_HOSTS); otherwise fall back to trust-on-first-use
+          # via ssh-keyscan. Either way, fail loudly if no key was obtained.
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "${KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          fi
+          if ! grep -q . ~/.ssh/known_hosts; then
+            echo "No host key for $SSH_HOST — set HETZNER_KNOWN_HOSTS or check connectivity/port." >&2
+            exit 1
+          fi
+          # ssh uses -p (lowercase), scp uses -P (uppercase) for port.
+          ssh_opts=(-i ~/.ssh/id_deploy -p "$SSH_PORT" -o StrictHostKeyChecking=yes)
+          scp_opts=(-i ~/.ssh/id_deploy -P "$SSH_PORT" -o StrictHostKeyChecking=yes)
+          target="$SSH_USER@$SSH_HOST"
+
+          # Ensure the deploy dir exists and ship the prod compose file.
+          ssh "${ssh_opts[@]}" "$target" "mkdir -p '$DEPLOY_DIR'"
+          scp "${scp_opts[@]}" docker-compose.prod.yml "$target:$DEPLOY_DIR/docker-compose.prod.yml"
+
+          # Stream config + the rollout script over stdin. Every value is shell-
+          # quoted with %q and travels through the pipe (never argv/ps), so
+          # tokens or URLs with special characters are handled safely.
+          { printf 'export BOT_IMAGE=%q\n'                   "$IMAGE";
+            printf 'export REGISTRY_USER=%q\n'               "$REGISTRY_USER";
+            printf 'export REGISTRY_TOKEN=%q\n'              "$REGISTRY_TOKEN";
+            printf 'export DEPLOY_DIR=%q\n'                  "$DEPLOY_DIR";
+            printf 'export BOT_TOKEN=%q\n'                   "$BOT_TOKEN";
+            printf 'export ADMIN_CHAT_ID=%q\n'               "$ADMIN_CHAT_ID";
+            printf 'export PUBLISH_CHAT_ID=%q\n'             "$PUBLISH_CHAT_ID";
+            printf 'export ADMIN_USER_IDS=%q\n'              "$ADMIN_USER_IDS";
+            printf 'export SUBMISSION_COOLDOWN_SECONDS=%q\n' "$SUBMISSION_COOLDOWN_SECONDS";
+            printf 'export GEMINI_API_KEY=%q\n'              "$GEMINI_API_KEY";
+            printf 'export GEMINI_MODEL=%q\n'                "$GEMINI_MODEL";
+            printf 'export OFFICIAL_NEWS_URL=%q\n'           "$OFFICIAL_NEWS_URL";
+            printf 'export OFFICIAL_NEWS_API_URL=%q\n'       "$OFFICIAL_NEWS_API_URL";
+            printf 'export OFFICIAL_NEWS_REGION=%q\n'        "$OFFICIAL_NEWS_REGION";
+            printf 'export NEWS_CHECK_INTERVAL_MINUTES=%q\n' "$NEWS_CHECK_INTERVAL_MINUTES";
+            printf 'export ARTICLE_TIMEZONE=%q\n'            "$ARTICLE_TIMEZONE";
+            printf 'export ENABLE_TELEGRAM_MODERATION=%q\n'      "$ENABLE_TELEGRAM_MODERATION";
+            printf 'export TELEGRAM_MODERATION_CHAT_IDS=%q\n'    "$TELEGRAM_MODERATION_CHAT_IDS";
+            printf 'export TELEGRAM_MOD_LOG_CHAT_ID=%q\n'        "$TELEGRAM_MOD_LOG_CHAT_ID";
+            printf 'export TELEGRAM_LINK_ALLOWLIST=%q\n'         "$TELEGRAM_LINK_ALLOWLIST";
+            printf 'export TELEGRAM_WELCOME_DELETE_SECONDS=%q\n' "$TELEGRAM_WELCOME_DELETE_SECONDS";
+            printf 'export ENABLE_DATABASE_BACKUP=%q\n'          "$ENABLE_DATABASE_BACKUP";
+            printf 'export DATABASE_BACKUP_HOUR=%q\n'            "$DATABASE_BACKUP_HOUR";
+            printf 'export DATABASE_BACKUP_KEEP=%q\n'            "$DATABASE_BACKUP_KEEP";
+            printf 'export MIN_SUBMISSION_TEXT_WORDS=%q\n'        "$MIN_SUBMISSION_TEXT_WORDS";
+            printf 'export MIN_SUBMISSION_TEXT_CHARS=%q\n'        "$MIN_SUBMISSION_TEXT_CHARS";
+            printf 'export MODERATION_SEND_INTERVAL_SECONDS=%q\n' "$MODERATION_SEND_INTERVAL_SECONDS";
+            printf 'export ENABLE_CROSS_SOURCE_DEDUP=%q\n'        "$ENABLE_CROSS_SOURCE_DEDUP";
+            printf 'export CROSS_SOURCE_DEDUP_TITLE_LIMIT=%q\n'   "$CROSS_SOURCE_DEDUP_TITLE_LIMIT";
+            printf 'export ENABLE_DISCORD_MODERATION=%q\n'        "$ENABLE_DISCORD_MODERATION";
+            printf 'export DISCORD_BOT_TOKEN=%q\n'                "$DISCORD_BOT_TOKEN";
+            printf 'export DISCORD_MOD_LOG_CHANNEL_ID=%q\n'       "$DISCORD_MOD_LOG_CHANNEL_ID";
+            printf 'export DISCORD_ALLOWED_INVITES=%q\n'          "$DISCORD_ALLOWED_INVITES";
+            printf 'export DISCORD_GUILD_ID=%q\n'                 "$DISCORD_GUILD_ID";
+            printf 'export DISCORD_WELCOME_CHANNEL_ID=%q\n'       "$DISCORD_WELCOME_CHANNEL_ID";
+            printf 'export DISCORD_CHAT_CHANNEL_ID=%q\n'          "$DISCORD_CHAT_CHANNEL_ID";
+            printf 'export DISCORD_LFT_CHANNEL_ID=%q\n'           "$DISCORD_LFT_CHANNEL_ID";
+            printf 'export ENABLE_STEAM_SOURCE=%q\n'              "$ENABLE_STEAM_SOURCE";
+            printf 'export STEAM_FEED_URL=%q\n'                   "$STEAM_FEED_URL";
+            printf 'export ENABLE_BLUESKY_SOURCE=%q\n'            "$ENABLE_BLUESKY_SOURCE";
+            printf 'export BLUESKY_ACTOR=%q\n'                    "$BLUESKY_ACTOR";
+            printf 'export ENABLE_BLUESKY_VIDEO_DOWNLOAD=%q\n'    "$ENABLE_BLUESKY_VIDEO_DOWNLOAD";
+            printf 'export BLUESKY_VIDEO_MAX_MB=%q\n'             "$BLUESKY_VIDEO_MAX_MB";
+            printf 'export ENABLE_YOUTUBE_SOURCE=%q\n'            "$ENABLE_YOUTUBE_SOURCE";
+            printf 'export YOUTUBE_CHANNEL_ID=%q\n'               "$YOUTUBE_CHANNEL_ID";
+            printf 'export YOUTUBE_EXCLUDE_KEYWORDS=%q\n'         "$YOUTUBE_EXCLUDE_KEYWORDS";
+            printf 'export ENABLE_YOUTUBE_VIDEO_DOWNLOAD=%q\n'    "$ENABLE_YOUTUBE_VIDEO_DOWNLOAD";
+            printf 'export YOUTUBE_VIDEO_MAX_MB=%q\n'             "$YOUTUBE_VIDEO_MAX_MB";
+            printf 'export ENABLE_YOUTUBE_PO_TOKEN=%q\n'          "$ENABLE_YOUTUBE_PO_TOKEN";
+            printf 'export YOUTUBE_COOKIE=%q\n'                   "$YOUTUBE_COOKIE";
+            printf 'export ENABLE_REDDIT_SOURCE=%q\n'             "$ENABLE_REDDIT_SOURCE";
+            printf 'export REDDIT_SUBREDDIT=%q\n'                 "$REDDIT_SUBREDDIT";
+            printf 'export REDDIT_FLAIRS=%q\n'                    "$REDDIT_FLAIRS";
+            printf 'export REDDIT_EXCLUDE_KEYWORDS=%q\n'          "$REDDIT_EXCLUDE_KEYWORDS";
+            printf 'export ENABLE_ANIIMOTOOLS_SOURCE=%q\n'        "$ENABLE_ANIIMOTOOLS_SOURCE";
+            printf 'export ANIIMOTOOLS_FEED_URL=%q\n'             "$ANIIMOTOOLS_FEED_URL";
+            printf 'export ENABLE_WIKI_ANIIMO=%q\n'               "$ENABLE_WIKI_ANIIMO";
+            printf 'export WIKI_ANIIMO_API_URL=%q\n'              "$WIKI_ANIIMO_API_URL";
+            printf 'export WIKI_ANIIMO_SITE_URL=%q\n'             "$WIKI_ANIIMO_SITE_URL";
+            printf 'export WIKI_ANIIMO_WEEKDAY=%q\n'              "$WIKI_ANIIMO_WEEKDAY";
+            printf 'export WIKI_ANIIMO_HOUR=%q\n'                 "$WIKI_ANIIMO_HOUR";
+            printf 'export ENABLE_FANART_DIGEST=%q\n'             "$ENABLE_FANART_DIGEST";
+            printf 'export FANART_SUBREDDIT=%q\n'                 "$FANART_SUBREDDIT";
+            printf 'export FANART_FLAIR=%q\n'                     "$FANART_FLAIR";
+            printf 'export FANART_DIGEST_WEEKDAY=%q\n'            "$FANART_DIGEST_WEEKDAY";
+            printf 'export FANART_DIGEST_HOUR=%q\n'               "$FANART_DIGEST_HOUR";
+            printf 'export ENABLE_WEEKLY_REPORT=%q\n'             "$ENABLE_WEEKLY_REPORT";
+            printf 'export WEEKLY_REPORT_WEEKDAY=%q\n'            "$WEEKLY_REPORT_WEEKDAY";
+            printf 'export WEEKLY_REPORT_HOUR=%q\n'               "$WEEKLY_REPORT_HOUR";
+            printf 'export FANART_DIGEST_COUNT=%q\n'              "$FANART_DIGEST_COUNT";
+            cat scripts/deploy-remote.sh; } \
+            | ssh "${ssh_opts[@]}" "$target" bash -s
