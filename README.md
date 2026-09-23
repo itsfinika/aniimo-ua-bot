@@ -487,6 +487,8 @@ When `NEWS_CHECK_INTERVAL_MINUTES` is a positive integer and `GEMINI_API_KEY` is
 
 The first tick runs immediately on startup rather than after one interval, so a restart or deploy does not leave the bot blind, and each wait is measured from the start of a run so a slow tick cannot make the schedule drift later and later.
 
+The very first scheduled tick of a source it has never seen is a seeding run: whatever the feed holds at that moment is recorded in `seen_sources` with the outcome `seeded` and none of it is drafted, so a fresh database does not push months of archive into moderation. Seeding fetches only the listing — no article is parsed and no Gemini call is made — and collection starts from the next item published after it. It applies only to a source with no rows at all; once one item is recorded, whether by a seeding run or by `/fetch_news`, the article-date gate keeps older items out, so enabling a new source later never replays its archive either. Seeded rows are excluded from what `/stats` and the weekly report count as collected.
+
 Two things deliberately sit outside that tick, because they are weekly and would otherwise post every interval:
 
 - the **"Аніімо тижня" rubric**, which runs on `WIKI_ANIIMO_WEEKDAY` at `WIKI_ANIIMO_HOUR` — it is still available as a `/fetch_news` button

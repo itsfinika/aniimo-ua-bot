@@ -91,6 +91,10 @@ export class BaseNewsCollector {
       return stats;
     }
 
+    if (mode === CollectionMode.SCHEDULED_SINCE_LAST && (await this.seedIfFirstRun(entries, stats))) {
+      return stats;
+    }
+
     if (!this.config.gemini_api_key) {
       const warning = this.missingGeminiWarning();
       logger.warning(
@@ -133,6 +137,48 @@ export class BaseNewsCollector {
     }
 
     return stats;
+  }
+
+  /**
+   * On the very first scheduled run of a source, record what the feed currently
+   * holds as seen and draft none of it.
+   *
+   * Without this a fresh database treats a whole feed as breaking news: the
+   * first tick would push months of archive into moderation and burn the Gemini
+   * quota on articles nobody is waiting for. Seeding costs no Gemini call — the
+   * entries are marked by their listing `dedup_key`, so nothing is even fetched
+   * or parsed — and the bot starts reporting from the next item published.
+   *
+   * It applies only when the source has NO rows at all. Once one item is
+   * recorded (a manual `/fetch_news`, or the previous scheduled run), the
+   * article-date gate in `parseCandidateIfNeeded` keeps the older ones out, so
+   * enabling a new source later never replays its archive either.
+   *
+   * @returns {Promise<boolean>} true when this run was a seeding run.
+   */
+  async seedIfFirstRun(entries, stats) {
+    const sourceType = this.definition.source_type;
+    if (await this.db.hasSeenSource(sourceType)) {
+      return false;
+    }
+
+    for (const entry of entries) {
+      await this.db.markSourceSeen({
+        source_type: sourceType,
+        source_id: entry.dedup_key,
+        source_url: "",
+        title: null,
+        article_date: null,
+        outcome: "seeded",
+      });
+    }
+
+    stats.duplicates = entries.length;
+    logger.info(
+      `First run for ${this.definition.collector_id}: recorded ${entries.length} existing ` +
+        `item(s) as seen without drafting. Collection starts from the next published item.`,
+    );
+    return true;
   }
 
   async countSeenAndNewWithoutGemini(entries, stats, mode) {

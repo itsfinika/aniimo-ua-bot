@@ -623,6 +623,21 @@ export class Database {
     });
   }
 
+  /**
+   * Has this source ever recorded anything?
+   *
+   * Distinct from getLatestSeenArticleDate, which answers null both for an
+   * untouched source and for one whose rows carry no article date. The
+   * collectors need the difference: only a genuinely untouched source is seeded
+   * on its first scheduled run instead of being drafted.
+   */
+  async hasSeenSource(sourceType) {
+    return this.#connect((db) => {
+      const row = db.prepare(`SELECT 1 FROM seen_sources WHERE source_type = ? LIMIT 1`).get(sourceType);
+      return row !== undefined;
+    });
+  }
+
   async getLatestSeenArticleDate(sourceType) {
     return this.#connect((db) => {
       const row = db
