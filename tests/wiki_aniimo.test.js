@@ -591,7 +591,7 @@ it("selects and renders the creature prompt", () => {
 
 it("closes the post with the wiki call-to-action, not a source line", () => {
   const line = sourceAttributionLine(wikiDraftInput("Аніімо тижня: Emberpup", "Name: Emberpup"));
-  expect(line).toBe("Більше про цю істоту — в офіційній вікі.");
+  expect(line).toBe("Більше про цю істоту в офіційній вікі.");
   expect(line).toBe(attributionLine("wiki_aniimo"));
   expect(line).not.toContain("Джерело");
 });

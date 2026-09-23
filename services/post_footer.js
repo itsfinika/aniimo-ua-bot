@@ -9,9 +9,9 @@ import { isSafeHttpUrl } from "./urlutils.js";
 // draft is written from the locale, the link is applied from this table, and the
 // two only meet when they spell the line identically.
 export const SOURCE_ATTRIBUTIONS = Object.freeze({
-  official_aniimo: { prefix: "Повні деталі — на ", label: "офіційному сайті", suffix: "." },
-  steam: { prefix: "Повні деталі — на ", label: "сторінці у Steam", suffix: "." },
-  wiki_aniimo: { prefix: "Більше про цю істоту — в ", label: "офіційній вікі", suffix: "." },
+  official_aniimo: { prefix: "Повні деталі на ", label: "офіційному сайті", suffix: "." },
+  steam: { prefix: "Повні деталі на ", label: "сторінці у Steam", suffix: "." },
+  wiki_aniimo: { prefix: "Більше про цю істоту в ", label: "офіційній вікі", suffix: "." },
 });
 
 /** The full attribution line for a source type, or null when it carries none. */

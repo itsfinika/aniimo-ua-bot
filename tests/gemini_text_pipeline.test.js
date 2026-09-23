@@ -240,6 +240,6 @@ it("does not mistake a sentence that merely mentions the label for the CTA", () 
   // The sentence lacks the lead-in, so it is the model's prose and stays; the
   // official post still closes with its canonical reader line as always.
   expect(result).toBe(
-    "Повні подробиці шукайте на офіційному сайті гри.\n\nПовні деталі — на офіційному сайті.\n\n#AniimoUA #Офіційно #Анонс",
+    "Повні подробиці шукайте на офіційному сайті гри.\n\nПовні деталі на офіційному сайті.\n\n#AniimoUA #Офіційно #Анонс",
   );
 });

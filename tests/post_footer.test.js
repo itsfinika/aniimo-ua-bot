@@ -113,7 +113,7 @@ it("spells every attribution line exactly like its locale string", () => {
 
 it("keeps the official line under its old export name", () => {
   expect(OFFICIAL_SOURCE_ATTRIBUTION).toBe(attributionLine("official_aniimo"));
-  expect(OFFICIAL_SOURCE_ATTRIBUTION).toBe("Повні деталі — на офіційному сайті.");
+  expect(OFFICIAL_SOURCE_ATTRIBUTION).toBe("Повні деталі на офіційному сайті.");
 });
 
 it("has no line for a source without a call-to-action", () => {

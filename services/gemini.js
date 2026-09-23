@@ -867,7 +867,7 @@ function removeSourceAttributionLines(text) {
  * its lead-in (or wrapped in an anchor).
  *
  * Only the lead-in WORDS of the prefix ("повні деталі", "більше про цю істоту")
- * are required, not its dash: the model regularly hands back "Повні деталі - на
+ * are required, not its dash: the model regularly hands back "Повні деталі — на
  * офіційному сайті", "– на" or no dash at all, and each of those must be
  * recognised as the same line — otherwise the canonical line is appended next to
  * the model's, the post says it twice and only the canonical copy gets the link.
@@ -882,9 +882,18 @@ function isSourceAttributionLine(line) {
   });
 }
 
-/** "Повні деталі — на " → "повні деталі": the prefix up to its dash. */
+/**
+ * "Повні деталі на " → "повні деталі": the words that open the line, without
+ * the preposition that leads into the label and without a dash if one is
+ * present. Our own lines carry no dash any more, but the model still writes
+ * "Повні деталі — на ...", so both spellings have to reduce to the same stem.
+ */
 function attributionLeadIn(parts) {
-  return parts.prefix.split(/\s*[—–-]\s*/)[0].trim().toLowerCase();
+  return parts.prefix
+    .split(/\s*[—–-]\s*/)[0]
+    .replace(/\s+(?:на|в|у)\s*$/iu, "")
+    .trim()
+    .toLowerCase();
 }
 
 function ensureHashtagsAtBottom(text, draftInput) {

@@ -21,8 +21,8 @@ import {
 const { buildPrompt, ensureRequiredMetadata, fallbackTags, publicHashtagLine, selectPromptTemplate, sourceAttributionLine } =
   __testing;
 
-const WIKI_ATTRIBUTION = "Більше про цю істоту — в офіційній вікі.";
-const STEAM_ATTRIBUTION = "Повні деталі — на сторінці у Steam.";
+const WIKI_ATTRIBUTION = "Більше про цю істоту в офіційній вікі.";
+const STEAM_ATTRIBUTION = "Повні деталі на сторінці у Steam.";
 
 function draft(sourceType, sourceName = "Bluesky Aniimo") {
   return geminiDraftInput({
@@ -53,7 +53,7 @@ it("closes the wiki rubric with its reader link, not a source credit", () => {
 
 it("leaves official attribution unchanged", () => {
   expect(sourceAttributionLine(draft("official_aniimo"))).toBe(OFFICIAL_SOURCE_ATTRIBUTION);
-  expect(OFFICIAL_SOURCE_ATTRIBUTION).toBe("Повні деталі — на офіційному сайті.");
+  expect(OFFICIAL_SOURCE_ATTRIBUTION).toBe("Повні деталі на офіційному сайті.");
 });
 
 it("gives Steam its own reader link", () => {
@@ -254,7 +254,7 @@ it("links the wiki rubric's call-to-action instead of a source credit", () => {
   });
 
   expect(html).not.toContain("Джерело");
-  expect(html).toContain('Більше про цю істоту — в <a href="https://wiki.aniimo.com/en/item/001">офіційній вікі</a>.');
+  expect(html).toContain('Більше про цю істоту в <a href="https://wiki.aniimo.com/en/item/001">офіційній вікі</a>.');
 });
 
 it("leaves a user submission's own text alone", () => {
@@ -293,7 +293,7 @@ it("linkifies the Steam call-to-action", () => {
     allow_source_link: true,
   });
   expect(html).toContain(
-    'Повні деталі — на <a href="https://store.steampowered.com/news/app/4126040/view/1">сторінці у Steam</a>.',
+    'Повні деталі на <a href="https://store.steampowered.com/news/app/4126040/view/1">сторінці у Steam</a>.',
   );
 });
 
