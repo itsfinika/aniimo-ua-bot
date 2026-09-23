@@ -52,10 +52,10 @@ export const OFFICIAL_BASE_HASHTAGS = ["#AniimoUA", "#Офіційно"];
 // "video", "test", a bare "balance" (account balance) — because on a 12 000-
 // character body such a word fires the rule on almost every post.
 const OFFICIAL_TOPIC_TAG_RULES = [
-  [["patch notes", "update notice", "version update", "game update", "patch", "hotfix"], "#Патч"],
-  [["fix", "fixes", "bug", "known issue", "crash", "optimization", "optimisation", "stability"], "#Фікси"],
+  [["patch notes", "update notice", "version update", "game update", "patch", "hotfix"], "#Оновлення"],
+  [["fix", "fixes", "bug", "known issue", "crash", "optimization", "optimisation", "optimized", "optimised", "stability"], "#Виправлення"],
   [["balance adjustment", "balance adjustments", "balance changes", "adjustment", "nerf", "buff"], "#Баланс"],
-  [["event", "challenge", "reward", "rewards", "login", "bonus", "milestone", "celebration"], "#Івент"],
+  [["event", "challenge", "reward", "rewards", "login", "bonus", "milestone", "celebration"], "#Подія"],
   [
     ["shop", "in-game store", "bundle", "pack", "price", "limited-time", "limited time", "top-up", "glimmer"],
     "#Магазин",
@@ -69,7 +69,9 @@ const OFFICIAL_TOPIC_TAG_RULES = [
   [["season", "version 1.", "new version", "roadmap"], "#Версія"],
   [["maintenance", "server", "downtime", "offline", "compensation"], "#ТехнічніРоботи"],
   [["ranked", "competitive", "rank", "league"], "#Рейтинг"],
-  [["mobile", "ios", "android", "pre-download", "predownload", "pre-load", "preload"], "#Мобільна"],
+  // "pre-download" deliberately absent: PC and console get pre-downloads too,
+  // and it used to tag a PC launch notice as a mobile one.
+  [["mobile", "ios", "android", "smartphone", "tablet"], "#МобільнаВерсія"],
   [
     [
       "pc",
@@ -91,7 +93,9 @@ const OFFICIAL_TOPIC_TAG_RULES = [
   [["beta", "closed beta"], "#Бета"],
   [["creator", "creators", "recruitment", "partner"], "#Креатори"],
   [["vote", "voting", "poll", "survey", "q&a", "feedback"], "#Спільнота"],
-  [["announcement", "notice", "letter"], "#Анонс"],
+  // No rule for "announcement"/"notice"/"letter": almost every official title
+  // carries one of those words, so it competed with the real topic. "#Анонс"
+  // is the fallback below instead, used only when nothing else matched.
 ];
 const OFFICIAL_POST_TYPE_RULES = [
   [
@@ -176,7 +180,7 @@ export class GeminiDraftGenerator {
   }
 
   async generateDraftPackage(draftInput, { maxPartLength }) {
-    const prompt = buildPrompt(draftInput);
+    const prompt = buildPrompt(draftInput, { maxLength: effectiveMaxLength(draftInput, maxPartLength) });
     let draft;
     try {
       draft = await this.generateOnce(prompt);
@@ -311,10 +315,27 @@ function geminiRetryDelaySeconds(error, attempt) {
   return Math.min(8.0 * (attempt + 1), GEMINI_MAX_RETRY_DELAY_SECONDS);
 }
 
-function buildPrompt(draftInput) {
+/**
+ * How many characters this post may actually use.
+ *
+ * The post-type ceiling is only half of it: a photo post carries its text as
+ * a Telegram caption, which is capped far lower than a message, so the
+ * collector passes the real per-part budget in. Telling the model the same
+ * number the truncator enforces is what keeps a draft from being cut off
+ * mid-sentence.
+ */
+function effectiveMaxLength(draftInput, maxPartLength) {
+  if (isOfficialSource(draftInput)) {
+    return Math.min(officialMaxLength(draftInput), maxPartLength);
+  }
+  return maxPartLength;
+}
+
+function buildPrompt(draftInput, { maxLength = null } = {}) {
   const sourceLine = sourceAttributionLine(draftInput);
+  const maxLengthValue = String(maxLength ?? OFFICIAL_NORMAL_MAX_LENGTH);
   return formatTemplate(selectPromptTemplate(draftInput), {
-    style_prompt: loadStylePrompt(),
+    style_prompt: formatTemplate(loadStylePrompt(), { max_length: maxLengthValue }),
     source_type: draftInput.source_type,
     source_name: draftInput.source_name,
     title: draftInput.title,
@@ -326,6 +347,7 @@ function buildPrompt(draftInput) {
     datetime_notes: draftInput.datetime_notes || "UTC/GMT-часів для конвертації не знайдено.",
     body_text: draftInput.body_text || t("gemini.fallback_body"),
     rumor_notice: rumorNotice(draftInput),
+    max_length: maxLengthValue,
   });
 }
 
@@ -659,7 +681,7 @@ function officialDatabaseTags(draftInput) {
  * The title is what the article is ABOUT; a 12 000-character body mentions
  * rewards, fixes, the store and a video somewhere in almost every post, so
  * matching title+body together tagged a mobile pre-download notice
- * "#Фікси #Баланс #Івент". The body is still consulted for a title that says
+ * "#Виправлення #Баланс #Подія". The body is still consulted for a title that says
  * nothing ("Welcome to Idyll"), where any signal beats the bare "#Анонс".
  *
  * `fallback` adds "#Анонс" when nothing matched. Callers that already supply
@@ -679,7 +701,10 @@ function topicHashtags(draftInput, { fallback = true } = {}) {
     topicTags.push("#Анонс");
   }
 
-  return topicTags.slice(0, 3);
+  // Up to four, and only what actually matched: the noise came from scanning a
+  // whole patch note, not from the count, so a post that genuinely touches
+  // four topics may carry four tags.
+  return topicTags.slice(0, 4);
 }
 
 function matchTopicTags(text) {
@@ -699,8 +724,17 @@ function matchTopicTags(text) {
 }
 
 /** The lowercased title, then the lowercased body — the order the rules try them in. */
+// How far into the body a topic keyword still counts. The title is the honest
+// signal; the body is only a fallback for a title that says nothing, and a
+// whole patch note mentions rewards, fixes and the store somewhere, so only
+// its opening is read. Beyond that the matches are incidental, not the topic.
+const BODY_TOPIC_SCAN_CHARS = 600;
+
 function matchTexts(draftInput) {
-  return [String(draftInput.title ?? "").toLowerCase(), String(draftInput.body_text ?? "").toLowerCase()];
+  return [
+    String(draftInput.title ?? "").toLowerCase(),
+    String(draftInput.body_text ?? "").slice(0, BODY_TOPIC_SCAN_CHARS).toLowerCase(),
+  ];
 }
 
 function officialHashtags(draftInput) {

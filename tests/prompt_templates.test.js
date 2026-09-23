@@ -41,6 +41,7 @@ const DRAFT_KEYS = {
   datetime_notes: "s",
   body_text: "s",
   rumor_notice: "s",
+  max_length: "900",
 };
 
 const TEMPLATES = [
@@ -90,7 +91,15 @@ it("keeps the JSON example escaped so it survives rendering", () => {
   );
 });
 
-it("has no style prompt placeholder left unfilled", () => {
-  // The style prompt is inlined into the news prompt, not formatted itself.
-  expect(read(STYLE_PROMPT_PATH)).not.toContain("{");
+it("fills the one placeholder the style prompt carries", () => {
+  // The style prompt is inlined into the news prompt, but it is formatted
+  // first: the model has to be told the same character budget the truncator
+  // enforces, which depends on the post (a photo caption is capped lower than
+  // a message). Any OTHER placeholder here would reach the model verbatim.
+  const style = read(STYLE_PROMPT_PATH);
+  expect([...style.matchAll(/\{([a-z_]+)\}/g)].map((match) => match[1])).toEqual(["max_length"]);
+
+  const rendered = formatTemplate(style, { max_length: "900" });
+  expect(rendered).toContain("900 символів");
+  expect(rendered).not.toContain("{");
 });

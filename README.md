@@ -525,7 +525,7 @@ The admin moderation preview keeps metadata separate from the publishable draft.
 The community navigation footer is always added to every published post — official AI-generated news drafts (after the hashtags) and manual user submissions alike. It is shown in moderation so admins see the final publishable post:
 
 ```text
-#AniimoUA #Офіційно #Патч
+#AniimoUA #Офіційно #Оновлення
 
 💬 Чат | 🤖 Запропонувати новину
 ```
@@ -546,7 +546,7 @@ Cross-source deduplication then catches the same story arriving through two diff
 
 ### Hashtags
 
-Tags are deterministic, not generated. Official articles (site and Steam) get `#AniimoUA` and `#Офіційно`, followed by up to three Ukrainian topic hashtags matched from the title and body: `#Патч`, `#Фікси`, `#Баланс`, `#Івент`, `#Магазин`, `#Косметика`, `#Трейлер`, `#Аніімо`, `#Сюжет`, `#Локації`, `#Геймплей`, `#Версія`, `#ТехнічніРоботи`, `#Рейтинг`, `#Мобільна`, `#Платформи`, `#Бета`, `#Креатори`, `#Спільнота`, or `#Анонс` as the fallback. Social and third-party sources (Bluesky, YouTube, Aniimo Tools) get the same topic tags without the `#Офіційно` marker.
+Tags are deterministic, not generated. Official articles (site and Steam) get `#AniimoUA` and `#Офіційно`, followed by up to **four** Ukrainian topic hashtags: `#Оновлення`, `#Виправлення`, `#Баланс`, `#Подія`, `#Магазин`, `#Косметика`, `#Трейлер`, `#Аніімо`, `#Сюжет`, `#Локації`, `#Геймплей`, `#Версія`, `#ТехнічніРоботи`, `#Рейтинг`, `#МобільнаВерсія`, `#Платформи`, `#Бета`, `#Креатори`, `#Спільнота`, with `#Анонс` as the fallback when nothing matches. The title decides; the body is consulted only when the title carries no topic word, and then only its first 600 characters, because a whole patch note mentions rewards, fixes and the store somewhere and those matches are incidental rather than the topic. There is no separate rule for "announcement"/"notice"/"letter" any more: nearly every official title carries one of those words, so it competed with the real topic and left every post looking like a generic announcement.
 
 Two kinds of post opt out of that scheme, because the topic rules would mislabel them:
 

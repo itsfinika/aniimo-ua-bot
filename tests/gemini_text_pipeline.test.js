@@ -44,28 +44,28 @@ function listingDraft(id) {
 // ---- topic hashtags on the real listing ----------------------------------------- //
 
 it.each([
-  ["100137", "#Мобільна #Платформи"], // Aniimo Mobile Pre-Download Now Available! Coming to All Platforms…
-  ["100145", "#Патч #Анонс"], // September 23 Update Notice — Setting Out in Pursuit of the Wind: Part I
+  ["100137", "#МобільнаВерсія #Платформи"], // Aniimo Mobile Pre-Download Now Available! Coming to All Platforms…
+  ["100145", "#Оновлення"], // September 23 Update Notice — Setting Out in Pursuit of the Wind: Part I
   ["100115", "#Платформи"], // Aniimo Is Now Live on PC & Console!
-  ["100111", "#Івент #Бета #Анонс"], // IMPORTANT NOTICE: How to Claim Your Beta Test Rewards
-  ["100100", "#Фікси"], // Intel CPU Stability Issues and Solutions
-  ["100089", "#Мобільна #Платформи"], // Aniimo PC & Console Pre-Download Now Available! Launching on September 16!
+  ["100111", "#Подія #Бета"], // IMPORTANT NOTICE: How to Claim Your Beta Test Rewards
+  ["100100", "#Виправлення"], // Intel CPU Stability Issues and Solutions
+  ["100089", "#Платформи"], // Aniimo PC & Console Pre-Download Now Available! Launching on September 16!
   ["100067", "#Анонс"], // Aniimo Fair Play Announcement
   ["100064", "#Анонс"], // A Letter from the Aniimo Dev Team
-  ["100051", "#Мобільна #Платформи"], // Aniimo Global Launch Dates: Coming to PC & Consoles…, Mobile…
+  ["100051", "#МобільнаВерсія #Платформи"], // Aniimo Global Launch Dates: Coming to PC & Consoles…, Mobile…
   ["100062", "#Анонс"], // A New Way to Connect with Your Aniimo (no topic word, empty excerpt)
-  ["100046", "#Бета #Анонс"], // Global Closed Beta End Notice
-  ["100041", "#Івент #Аніімо #Бета"], // Global Closed Beta Bond Pact Event FAQ
+  ["100046", "#Бета"], // Global Closed Beta End Notice
+  ["100041", "#Подія #Аніімо #Бета"], // Global Closed Beta Bond Pact Event FAQ
   ["100035", "#Бета"], // Welcome to Idyll — nothing in the title, "The Global Closed Beta Begins" in the excerpt
   ["100036", "#Бета"], // Global Closed Beta: Download Guide
   ["100024", "#Креатори"], // Aniimo Global Creator Recruitment Now Open
   ["100025", "#Анонс"], // Your Chance to Join the Adventure before its Global Launch
   ["100023", "#Платформи"], // DLSS 4.5 Coming to Aniimo with Smoother Idyll Adventures
-  ["100022", "#Патч #Анонс"], // February 6 Update Notice
-  ["100021", "#Бета #Анонс"], // End Date Announcement of Second Closed Beta
-  ["100020", "#Івент #Бета"], // Second Closed Beta: [Reunion Promise] Event FAQ
-  ["100011", "#Анонс"], // Optimized item acquisition conditions
-  ["100010", "#Патч"], // January 27 Patch Notes
+  ["100022", "#Оновлення"], // February 6 Update Notice
+  ["100021", "#Бета"], // End Date Announcement of Second Closed Beta
+  ["100020", "#Подія #Бета"], // Second Closed Beta: [Reunion Promise] Event FAQ
+  ["100011", "#Виправлення"], // Optimized item acquisition conditions
+  ["100010", "#Оновлення"], // January 27 Patch Notes
 ])("tags listing item %s as %s", (id, expected) => {
   expect(publicHashtagLine(listingDraft(id))).toBe(`#AniimoUA #Офіційно ${expected}`);
 });
@@ -90,14 +90,14 @@ it("reads the topic from the title and ignores body noise when the title has one
   const body = ARTICLE.data.content;
   // The full update-notice body mentions rewards, fixes, the store and more;
   // none of that displaces the title's own topic.
-  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#AniimoUA #Офіційно #Патч #Анонс");
+  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#AniimoUA #Офіційно #Оновлення");
   // The mobile pre-download FAQ: "issue", "balance", "App Store" and "video"
-  // in the body used to give "#Фікси #Баланс #Івент".
+  // in the body used to give "#Виправлення #Баланс #Подія".
   const faq =
     "If you encounter an issue, check your account balance in the App Store. Watch the video. " +
     "Rewards for the launch event will be sent by mail.";
   expect(publicHashtagLine(official("Aniimo Mobile Pre-Download Now Available!", faq))).toBe(
-    "#AniimoUA #Офіційно #Мобільна",
+    "#AniimoUA #Офіційно #МобільнаВерсія",
   );
 });
 
