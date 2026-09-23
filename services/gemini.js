@@ -23,8 +23,12 @@ const logger = getLogger("services.gemini");
 // Gemini's free tier throttles by requests-per-minute; a burst (e.g. several
 // dedup + draft calls in one scheduler tick) trips a 429 that is transient. Retry
 // it a few times with a bounded backoff so one throttle doesn't drop a draft.
-const GEMINI_MAX_ATTEMPTS = 3;
-const GEMINI_MAX_RETRY_DELAY_SECONDS = 20.0;
+// The free tier answers 503 «This model is currently experiencing high demand»
+// in bursts that outlast a couple of quick retries, and a lost draft costs a
+// post. Five attempts with up to 45 s between them wait out roughly two
+// minutes, which a background collector does not feel at all.
+const GEMINI_MAX_ATTEMPTS = 5;
+const GEMINI_MAX_RETRY_DELAY_SECONDS = 45.0;
 
 const PROMPTS_DIR = path.resolve(import.meta.dirname, "..", "prompts");
 export const PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_news_uk.md");

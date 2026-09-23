@@ -24,6 +24,12 @@ import { elementLabel, roleLabel, WikiAniimoClient } from "./client.js";
 
 const logger = getLogger("services.collectors.wiki_aniimo.collector");
 
+// A weekly job gets one shot: when Gemini is overloaded at that exact minute the
+// rubric would skip a whole week. These retries turn a transient outage into a
+// post that is late by minutes instead of missing.
+const WEEKLY_RETRY_ATTEMPTS = 3;
+const WEEKLY_RETRY_DELAY_SECONDS = 600;
+
 export const COLLECTOR_ID = "wiki_aniimo";
 export const SOURCE_TYPE = "wiki_aniimo";
 
@@ -111,7 +117,7 @@ export class WikiAniimoCollector extends BaseNewsCollector {
 }
 
 // Exported for the unit tests, which assert the key shape and the sheet layout.
-export const __testing = { dedupKey, buildFactSheet };
+export const __testing = { dedupKey, buildFactSheet, runWeeklyWithRetries, WEEKLY_RETRY_ATTEMPTS, WEEKLY_RETRY_DELAY_SECONDS };
 
 /** `wiki_aniimo:<entryId>` — the entry id is the wiki's own stable creature number. */
 function dedupKey(creature) {
@@ -227,10 +233,36 @@ async function wikiAniimoLoop(bot, config, db, signal) {
     const now = DateTime.now().setZone(zone);
     const nextRun = nextWeeklyRunAt(now, config.wiki_aniimo_weekday, config.wiki_aniimo_hour);
     await cancellableSleep(Math.max(1.0, nextRun.diff(now).as("seconds")), signal);
+    await runWeeklyWithRetries(bot, config, db, signal);
+  }
+}
+
+
+// The runner and the wait are injectable so the retry policy can be tested
+// without a wiki, a model or a ten-minute pause.
+async function runWeeklyWithRetries(
+  bot,
+  config,
+  db,
+  signal,
+  { runOnce = runWikiAniimoOnce, sleep = cancellableSleep } = {},
+) {
+  for (let attempt = 1; attempt <= WEEKLY_RETRY_ATTEMPTS; attempt += 1) {
     try {
-      await runWikiAniimoOnce(bot, config, db);
+      if (await runOnce(bot, config, db)) {
+        return;
+      }
     } catch (error) {
-      logger.exception("Weekly Aniimo-of-the-week run failed; retrying next week.", error);
+      logger.exception(`Weekly Aniimo-of-the-week attempt ${attempt} failed.`, error);
+    }
+    if (attempt < WEEKLY_RETRY_ATTEMPTS) {
+      logger.warning(
+        `Aniimo-of-the-week produced no post; retrying in ${WEEKLY_RETRY_DELAY_SECONDS / 60} min ` +
+          `(attempt ${attempt + 1}/${WEEKLY_RETRY_ATTEMPTS}).`,
+      );
+      await sleep(WEEKLY_RETRY_DELAY_SECONDS, signal);
+    } else {
+      logger.error("Aniimo-of-the-week produced no post after every retry; waiting for next week.");
     }
   }
 }

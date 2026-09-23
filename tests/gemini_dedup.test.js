@@ -36,10 +36,13 @@ it("detects retryable errors", () => {
 });
 
 it("honours the API retry delay, then caps, then falls back", () => {
-  expect(geminiRetryDelaySeconds(apiError(429, "'retryDelay': '40s'"), 0)).toBe(20.0); // capped
+  expect(geminiRetryDelaySeconds(apiError(429, "'retryDelay': '40s'"), 0)).toBe(41.0); // api + 1, under the cap
+  expect(geminiRetryDelaySeconds(apiError(429, "'retryDelay': '90s'"), 0)).toBe(45.0); // capped
   expect(geminiRetryDelaySeconds(apiError(429, "retryDelay: 5s"), 0)).toBe(6.0); // api + 1
   expect(geminiRetryDelaySeconds(apiError(429, "no delay"), 0)).toBe(8.0); // fallback
   expect(geminiRetryDelaySeconds(apiError(429, "no delay"), 1)).toBe(16.0);
+  // Five attempts now, so the backoff has to keep growing past the old ceiling.
+  expect(geminiRetryDelaySeconds(apiError(429, "no delay"), 4)).toBe(40.0);
 });
 
 it("parses a true verdict with an exact match", () => {
