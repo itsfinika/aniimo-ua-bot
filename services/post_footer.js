@@ -185,6 +185,14 @@ function formatPlainLink(keyPrefix) {
     return "";
   }
 
+  // A link whose URL is blank is left out of the footer entirely rather than
+  // printed as dead text: the linking pass below skips it for the same
+  // reason. Blanking the url in locales/uk.json is therefore how a
+  // community link is parked until it exists, without deleting its copy.
+  if (!footerLinkUrl(keyPrefix)) {
+    return "";
+  }
+
   return label;
 }
 

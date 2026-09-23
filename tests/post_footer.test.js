@@ -5,6 +5,8 @@
  * per-source reader call-to-action lines that become the post's only link.
  */
 
+import fs from "node:fs/promises";
+
 import { expect, it } from "vitest";
 
 import { t } from "../services/i18n.js";
@@ -20,7 +22,9 @@ import {
 
 const CHAT_LINK = '<a href="https://t.me/AniimoUAChat">Чат</a>';
 const SUBMISSION_LINK = '<a href="https://t.me/AniimoUABot">Запропонувати новину</a>';
-const DISCORD_LINK = '<a href="https://discord.gg/aniimo">Discord</a>';
+// The Discord link is parked: its copy stays in locales/uk.json but the url is
+// blank until the community server exists, and a blank url keeps a link out of
+// the footer altogether rather than printing it as dead text.
 // The footer is one line of links now — no rule above it, no heading — so every
 // label ends up inside an anchor and none of it survives as plain text. That is
 // what an attacker would have to reproduce to forge it.
@@ -38,14 +42,14 @@ it("appends the footer as one line of links", () => {
 
   expect(html).toContain(CHAT_LINK);
   expect(html).toContain(SUBMISSION_LINK);
-  expect(html).toContain(DISCORD_LINK);
+  expect(html).not.toContain("Discord");
   expect(html).not.toContain(FOOTER_SENTINEL); // the marker never reaches output
 });
 
 it("carries no rule and no heading above the links", () => {
   const html = formatPostHtml("Свіжа новина.", { include_community_footer: true });
 
-  expect(FOOTER_TEXT).toBe("💬 Чат | 🤖 Запропонувати новину | 🎧 Discord");
+  expect(FOOTER_TEXT).toBe("💬 Чат | 🤖 Запропонувати новину");
   expect(html).not.toContain("─");
   expect(html).not.toContain("Навігація");
   // Body, one blank line, links — nothing between them.
@@ -86,7 +90,7 @@ it("linkifies the standalone footer helper without leaking the sentinel", () => 
 
   expect(html).toContain(CHAT_LINK);
   expect(html).toContain(SUBMISSION_LINK);
-  expect(html).toContain(DISCORD_LINK);
+  expect(html).not.toContain("Discord");
   expect(html).not.toContain(FOOTER_SENTINEL);
 });
 
@@ -176,4 +180,17 @@ it("strips a public source label from every collector post", () => {
   expect(html).not.toContain("Джерело");
   expect(html).toContain("Аніімо тижня — Emberpup.");
   expect(html).toContain("#AniimoUA");
+});
+
+it("parks a community link by blanking its url, keeping the copy for later", async () => {
+  const locale = JSON.parse(await fs.readFile(new URL("../locales/uk.json", import.meta.url), "utf8"));
+  const discord = locale.post_footer.links.discord;
+
+  // The entry stays in place: restoring the invite is the whole change needed
+  // to bring the link back into the footer.
+  expect(discord.label).toBe("🎧 Discord");
+  expect(discord.url).toBe("");
+  // Parked means gone from the line, not shown without a link.
+  expect(FOOTER_TEXT).not.toContain("Discord");
+  expect(FOOTER_TEXT).toBe("💬 Чат | 🤖 Запропонувати новину");
 });
