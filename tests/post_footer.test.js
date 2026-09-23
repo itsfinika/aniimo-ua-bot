@@ -172,14 +172,14 @@ it("strips a public source label from every collector post", () => {
   // No source is licensed into naming itself any more: the wiki rubric, once the
   // only member of the allowlist, now uses its call-to-action line instead.
   expect(PUBLIC_SOURCE_ATTRIBUTION_TYPES.size).toBe(0);
-  const html = formatPostHtml("Аніімо тижня — Emberpup.\n\nДжерело: офіційна вікі Aniimo\n\n#AniimoUA", {
+  const html = formatPostHtml("Аніімо тижня — Emberpup.\n\nДжерело: офіційна вікі Aniimo\n\n#Aniimo", {
     source_url: "https://wiki.aniimo.com/en/item/001",
     source_type: "wiki_aniimo",
     allow_source_link: true,
   });
   expect(html).not.toContain("Джерело");
   expect(html).toContain("Аніімо тижня — Emberpup.");
-  expect(html).toContain("#AniimoUA");
+  expect(html).toContain("#Aniimo");
 });
 
 it("parks a community link by blanking its url, keeping the copy for later", async () => {

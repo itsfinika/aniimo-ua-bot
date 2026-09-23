@@ -67,7 +67,7 @@ it.each([
   ["100011", "#Виправлення"], // Optimized item acquisition conditions
   ["100010", "#Оновлення"], // January 27 Patch Notes
 ])("tags listing item %s as %s", (id, expected) => {
-  expect(publicHashtagLine(listingDraft(id))).toBe(`#AniimoUA #Офіційно ${expected}`);
+  expect(publicHashtagLine(listingDraft(id))).toBe(`#Aniimo ${expected}`);
 });
 
 it("never tags a post with the game's own name, the setting or an FAQ word", () => {
@@ -82,7 +82,7 @@ it("never tags a post with the game's own name, the setting or an FAQ word", () 
     expect(line, row.title).not.toMatch(/#Локації|#Баланс|#Магазин|#Трейлер/);
   }
   expect(publicHashtagLine(official("Aniimo", "Welcome to Idyll, the world of Aniimo"))).toBe(
-    "#AniimoUA #Офіційно #Анонс",
+    "#Aniimo #Анонс",
   );
 });
 
@@ -90,36 +90,36 @@ it("reads the topic from the title and ignores body noise when the title has one
   const body = ARTICLE.data.content;
   // The full update-notice body mentions rewards, fixes, the store and more;
   // none of that displaces the title's own topic.
-  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#AniimoUA #Офіційно #Оновлення");
+  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#Aniimo #Оновлення");
   // The mobile pre-download FAQ: "issue", "balance", "App Store" and "video"
   // in the body used to give "#Виправлення #Баланс #Подія".
   const faq =
     "If you encounter an issue, check your account balance in the App Store. Watch the video. " +
     "Rewards for the launch event will be sent by mail.";
   expect(publicHashtagLine(official("Aniimo Mobile Pre-Download Now Available!", faq))).toBe(
-    "#AniimoUA #Офіційно #МобільнаВерсія",
+    "#Aniimo #МобільнаВерсія",
   );
 });
 
 it("falls back to the body only when the title says nothing", () => {
   expect(publicHashtagLine(official("Dear Pathfinders", "A new outfit bundle is in the shop"))).toBe(
-    "#AniimoUA #Офіційно #Магазин #Косметика",
+    "#Aniimo #Магазин #Косметика",
   );
   // A bare "store"/"balance"/"video"/"test" in the body is no longer a topic.
   expect(publicHashtagLine(official("Dear Pathfinders", "Get it on the App Store; your balance; a video; test"))).toBe(
-    "#AniimoUA #Офіційно #Анонс",
+    "#Aniimo #Анонс",
   );
   expect(publicHashtagLine(official("Dear Pathfinders", "Balance adjustments to the in-game store prices"))).toBe(
-    "#AniimoUA #Офіційно #Баланс #Магазин",
+    "#Aniimo #Баланс #Магазин",
   );
 });
 
 it("keeps the short-form and rumour tagging on the same title-first rule", () => {
   expect(publicHashtagLine(official("New trailer reveal", "watch the trailer", "youtube"))).toBe(
-    "#AniimoUA #Трейлер",
+    "#Aniimo #Трейлер",
   );
   expect(publicHashtagLine(official("New outfit leaked", "a datamined costume for Emberpup", "reddit"))).toBe(
-    "#AniimoUA #Чутки #Косметика",
+    "#Aniimo #Чутки #Косметика",
   );
 });
 
@@ -214,7 +214,7 @@ it.each(CTA_VARIANTS)("replaces the official site CTA written with a %s by the c
   const canonical = t("gemini.attribution.official_aniimo");
   const draft = `Новина тут.\n\n${spell(canonical)}\n\n#X`;
   const result = prepareOfficialDraft(draft, official("Оголошення"), { maxPartLength: 4000 });
-  expect(result).toBe(`Новина тут.\n\n${canonical}\n\n#AniimoUA #Офіційно #Анонс`);
+  expect(result).toBe(`Новина тут.\n\n${canonical}\n\n#Aniimo #Анонс`);
   expect(result.split("офіційному сайті")).toHaveLength(2);
 });
 
@@ -222,7 +222,7 @@ it.each(CTA_VARIANTS)("replaces the Steam CTA written with a %s by the canonical
   const canonical = t("gemini.attribution.steam");
   const draft = `Новина тут.\n\n${spell(canonical)}\n\n#X`;
   const result = prepareOfficialDraft(draft, official("Оголошення", "", "steam"), { maxPartLength: 4000 });
-  expect(result).toBe(`Новина тут.\n\n${canonical}\n\n#AniimoUA #Офіційно #Анонс`);
+  expect(result).toBe(`Новина тут.\n\n${canonical}\n\n#Aniimo #Анонс`);
   expect(result.split("сторінці у Steam")).toHaveLength(2);
 });
 
@@ -230,7 +230,7 @@ it.each(CTA_VARIANTS)("replaces the wiki CTA written with a %s by the canonical 
   const canonical = t("gemini.attribution.wiki_aniimo");
   const draft = `🐾 Аніімо тижня — Emberpup\n\n${spell(canonical)}\n\n#X`;
   const result = ensureRequiredMetadata(draft, official("Аніімо тижня: Emberpup", "Name: Emberpup", "wiki_aniimo"));
-  expect(result).toBe(`🐾 Аніімо тижня — Emberpup\n\n${canonical}\n\n#AniimoUA #АніімоТижня`);
+  expect(result).toBe(`🐾 Аніімо тижня — Emberpup\n\n${canonical}\n\n#Aniimo #АніімоТижня`);
   expect(result.split("офіційній вікі")).toHaveLength(2);
 });
 
@@ -240,6 +240,6 @@ it("does not mistake a sentence that merely mentions the label for the CTA", () 
   // The sentence lacks the lead-in, so it is the model's prose and stays; the
   // official post still closes with its canonical reader line as always.
   expect(result).toBe(
-    "Повні подробиці шукайте на офіційному сайті гри.\n\nПовні деталі на офіційному сайті.\n\n#AniimoUA #Офіційно #Анонс",
+    "Повні подробиці шукайте на офіційному сайті гри.\n\nПовні деталі на офіційному сайті.\n\n#Aniimo #Анонс",
   );
 });

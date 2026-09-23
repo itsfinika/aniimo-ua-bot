@@ -71,11 +71,10 @@ it("spells every call-to-action the same in the locale and the link table", () =
   expect(attributionLine("bluesky")).toBeNull();
 });
 
-it("drops #Офіційно from non-official hashtags", () => {
+it("tags a non-official post with the channel tag and a topic", () => {
   const line = publicHashtagLine(draft("bluesky"));
-  expect(line).not.toContain("#Офіційно");
-  expect(line).toContain("#AniimoUA");
-  expect(line.replace("#AniimoUA", "")).toContain("#"); // also carries a topic tag now
+  expect(line).toContain("#Aniimo");
+  expect(line.replace("#Aniimo", "")).toContain("#"); // also carries a topic tag now
 });
 
 it("gives non-official posts topic tags", () => {
@@ -91,8 +90,7 @@ it("gives non-official posts topic tags", () => {
     }),
   );
   expect(line).toContain("#Трейлер");
-  expect(line).toContain("#AniimoUA");
-  expect(line).not.toContain("#Офіційно");
+  expect(line).toContain("#Aniimo");
 });
 
 function leak(title, body, sourceType = "reddit") {
@@ -114,7 +112,6 @@ it("always carries the rumour tag on a leak", () => {
 
   expect(line).toContain("#Чутки");
   expect(line).toContain("#Косметика");
-  expect(line).not.toContain("#Офіційно");
 });
 
 it("does not call a topic-less leak an announcement", () => {
@@ -139,7 +136,7 @@ it("does not treat Aniimo Tools as a rumour", () => {
     }),
   );
 
-  expect(line).toContain("#AniimoUA");
+  expect(line).toContain("#Aniimo");
   expect(line).toContain("#Косметика");
   expect(line).not.toContain("#Чутки");
   expect(line).not.toContain("#Офіційно");
@@ -151,7 +148,7 @@ it("gives the wiki rubric its fixed hashtags", () => {
   const line = publicHashtagLine(draft("wiki_aniimo"));
 
   expect(line).toBe(t("collectors.wiki_aniimo.hashtags"));
-  expect(line).toBe("#AniimoUA #АніімоТижня");
+  expect(line).toBe("#Aniimo #АніімоТижня");
 });
 
 it("keeps the stored rumour tags in step with the public marker", () => {
@@ -174,7 +171,7 @@ it("leaves official hashtags untouched by the rumour branch", () => {
   for (const sourceType of ["official_aniimo", "steam"]) {
     const line = publicHashtagLine(draft(sourceType));
 
-    expect(line.startsWith("#AniimoUA #Офіційно")).toBe(true);
+    expect(line.startsWith("#Aniimo")).toBe(true);
     expect(line).not.toContain("#Чутки");
   }
 });
@@ -232,7 +229,7 @@ it("does not link a generic source without a URL", () => {
 it("drops a source line from an ordinary collector post at render time", () => {
   // Covers drafts queued before the line became admin-only: they must not reach
   // the channel with it, and the moderation preview must show what will publish.
-  const html = formatPostHtml("Текст новини.\n\nДжерело: YouTube Aniimo\n\n#AniimoUA", {
+  const html = formatPostHtml("Текст новини.\n\nДжерело: YouTube Aniimo\n\n#Aniimo", {
     source_url: "https://youtube.com/watch?v=1",
     source_type: "youtube",
     allow_source_link: true,
@@ -241,7 +238,7 @@ it("drops a source line from an ordinary collector post at render time", () => {
   expect(html).not.toContain("Джерело");
   expect(html).not.toContain("YouTube Aniimo");
   expect(html).toContain("Текст новини.");
-  expect(html).toContain("#AniimoUA");
+  expect(html).toContain("#Aniimo");
   // The gap the removed line left is closed, not left as a double blank.
   expect(html).not.toContain("\n\n\n");
 });
@@ -351,7 +348,7 @@ it("gives a short-form draft no publication-date line", () => {
 
   expect(result).not.toContain("2026-06-12");
   expect(result).not.toContain("Джерело");
-  expect(result).toContain("#AniimoUA");
+  expect(result).toContain("#Aniimo");
 });
 
 it("drops a source line the model added to a short-form draft anyway", () => {
@@ -369,7 +366,7 @@ it("adds the wiki call-to-action to a creature draft that omitted it", () => {
 
   expect(result).toContain(WIKI_ATTRIBUTION);
   expect(result).not.toContain("Джерело");
-  expect(result.endsWith("#AniimoUA #АніімоТижня")).toBe(true);
+  expect(result.endsWith("#Aniimo #АніімоТижня")).toBe(true);
 });
 
 it("swaps a source credit the model wrote into the wiki draft for the call-to-action", () => {

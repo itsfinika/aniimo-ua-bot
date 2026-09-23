@@ -343,7 +343,7 @@ FANART_DIGEST_HOUR=18
 FANART_DIGEST_COUNT=10
 ```
 
-- `ENABLE_STEAM_SOURCE` / `STEAM_FEED_URL` — Steam's "Community Announcements" RSS for the Aniimo app (`4126040`). Every item in that feed is the developers' own post, so it is handled as an official source: full news prompt, `#Офіційно`, and a `Повні деталі — на сторінці у Steam.` line linking the announcement.
+- `ENABLE_STEAM_SOURCE` / `STEAM_FEED_URL` — Steam's "Community Announcements" RSS for the Aniimo app (`4126040`). Every item in that feed is the developers' own post, so it is handled as an official source: full news prompt and a `Повні деталі на сторінці у Steam.` line linking the announcement.
 - `BLUESKY_ACTOR` — the handle whose public feed is polled. **Default empty**, because Aniimo has no official Bluesky account; with the actor empty the source stays off even when `ENABLE_BLUESKY_SOURCE=true` (one warning is logged).
 - `ENABLE_BLUESKY_VIDEO_DOWNLOAD` (**on by default**) — resolves a video post to its original MP4 and re-uploads it as a native Telegram video. Off, or above `BLUESKY_VIDEO_MAX_MB` (default `48`), the post degrades to text.
 - `YOUTUBE_CHANNEL_ID` — default `UC2YdJw53sP73T-lffzrqTZA`, the official English channel @Aniimo_EN. The Japanese channel is a separate upload stream and is deliberately not used.
@@ -354,7 +354,7 @@ FANART_DIGEST_COUNT=10
 - `REDDIT_SUBREDDIT` — without the `r/` prefix, default `AniimoLeaks` (the general `r/Aniimo` has no leak flair and its news posts are reposts of official announcements).
 - `REDDIT_FLAIRS` — comma-separated flairs combined with `OR` into one search query. Empty keeps the default `Leak,Datamine,Reliable,Confirmed`, a guess for the still-empty `r/AniimoLeaks`: see [Before You Deploy](#before-you-deploy-placeholders-to-replace).
 - `REDDIT_EXCLUDE_KEYWORDS` — title blocklist, default `megathread` (recurring sticky threads). `-` or `none` disables it.
-- `ENABLE_ANIIMOTOOLS_SOURCE` / `ANIIMOTOOLS_FEED_URL` — the aniimotools.dev article RSS, default `https://aniimotools.dev/articles/rss.xml`. A fan-run site, so its posts get the short-form prompt with neither `#Офіційно` nor `#Чутки`.
+- `ENABLE_ANIIMOTOOLS_SOURCE` / `ANIIMOTOOLS_FEED_URL` — the aniimotools.dev article RSS, default `https://aniimotools.dev/articles/rss.xml`. A fan-run site, so its posts get the short-form prompt and no `#Чутки` marker.
 - `ENABLE_WIKI_ANIIMO` / `WIKI_ANIIMO_API_URL` / `WIKI_ANIIMO_SITE_URL` — the "Аніімо тижня" rubric: the wiki's JSON backend (default `https://wiki-backend.aniimo.com`) supplies the roster and the creature pages, and the public site (default `https://wiki.aniimo.com/en`) is what the post links to (`<WIKI_ANIIMO_SITE_URL>/item/<entryId>`). The rubric also needs `GEMINI_API_KEY`.
 - `WIKI_ANIIMO_WEEKDAY` / `WIKI_ANIIMO_HOUR` — when the rubric runs, default Monday (`0`) at `12`:00. Weekdays are `0`=Monday … `6`=Sunday.
 - `ENABLE_FANART_DIGEST` — switches the weekly fan-art digest on; it is a rubric with its own schedule, not a per-tick source.
@@ -408,7 +408,7 @@ Seven sources are registered in `services/collectors/registry.js`. Each is a `Ba
 | Aniimo Tools | `ENABLE_ANIIMOTOOLS_SOURCE` | third-party guides and news | photo, album of the article's images |
 | Wiki Aniimo | `ENABLE_WIKI_ANIIMO` | weekly "Аніімо тижня" creature spotlight | the creature's picture |
 
-Reddit is the only rumour-framed source: Gemini is explicitly told to present the item as an unofficial leak that developers have not confirmed, so a datamine never reads like an announcement. Aniimo Tools is deliberately *not* framed that way — it is a fan site publishing guides and news, not leaks — but it is not official either, so its posts get the short-form prompt without `#Офіційно` and without an attribution line.
+Reddit is the only rumour-framed source: Gemini is explicitly told to present the item as an unofficial leak that developers have not confirmed, so a datamine never reads like an announcement. Aniimo Tools is deliberately *not* framed that way — it is a fan site publishing guides and news, not leaks — but it is not official either, so its posts get the short-form prompt and no attribution line.
 
 ### The official site
 
@@ -420,7 +420,7 @@ For the body it fetches `GET /api/information/new?id=<id>`, whose `content` is a
 
 ### Steam
 
-`STEAM_FEED_URL` is the app's "Community Announcements" RSS 2.0 feed. Each `<item>` has a title, a link to `store.steampowered.com/news/app/4126040/view/<id>`, an RFC-822 `pubDate` in UTC, a `guid`, and a `description` holding the announcement as HTML (`bb_paragraph`, `bb_img`). The feed is parsed with the same DTD-refusing XML parser as the other feeds; the body is the text of its paragraphs, headings and list items, capped at 12,000 characters, with the same fullwidth-parenthesis normalisation as the site (Steam carries the site's text verbatim). Images are accepted only from `steamstatic.com`, `steamusercontent.com` and `akamaihd.net` hosts, up to 10, as cover plus album. The dedup key is the `guid`. Because every item is the developers' own post, `steam` sits in the official set alongside the site — full news prompt, `#Офіційно`, and the Steam attribution line. The site runs first in the registry, so when both carry the same announcement the cross-source check drops the Steam copy.
+`STEAM_FEED_URL` is the app's "Community Announcements" RSS 2.0 feed. Each `<item>` has a title, a link to `store.steampowered.com/news/app/4126040/view/<id>`, an RFC-822 `pubDate` in UTC, a `guid`, and a `description` holding the announcement as HTML (`bb_paragraph`, `bb_img`). The feed is parsed with the same DTD-refusing XML parser as the other feeds; the body is the text of its paragraphs, headings and list items, capped at 12,000 characters, with the same fullwidth-parenthesis normalisation as the site (Steam carries the site's text verbatim). Images are accepted only from `steamstatic.com`, `steamusercontent.com` and `akamaihd.net` hosts, up to 10, as cover plus album. The dedup key is the `guid`. Because every item is the developers' own post, `steam` sits in the official set alongside the site: full news prompt and the Steam attribution line. The site runs first in the registry, so when both carry the same announcement the cross-source check drops the Steam copy.
 
 ### Aniimo Tools
 
@@ -516,7 +516,7 @@ The duplicate count is possible because `seen_sources` records **why** an item w
 
 The **fan-art digest** pulls the top `FANART_FLAIR` posts of the past week from `FANART_SUBREDDIT` and queues one Telegram album of up to `FANART_DIGEST_COUNT` images. The caption credits each artist by their Reddit nick, hyperlinked to their post — post titles are never shown. Only direct `i.redd.it` still images are included: a media group is atomic, so one image Telegram cannot fetch would fail the whole album. At most three works by the same artist are used, so one prolific week does not turn the round-up into a solo show; further works by that artist are held back and only used if the album would otherwise come out short. A week that yields no usable image is not marked done, so a later run can still post it.
 
-The **"Аніімо тижня" rubric** shuffles the wiki roster and takes the first creature whose `wiki_aniimo:<entryId>` key is not yet in `seen_sources`, so over time it walks the whole roster in random order without repeating one. There is no AI "pick" step: the choice is a shuffle, and Gemini's only job is the writing. The creature's page is turned into an English fact sheet — name, number, element, role, description, habitats, evolution line, trait, mobility — and the prompt turns that into a 250–700 character Ukrainian post opening with `🐾 Аніімо тижня — <Name>`, keeping creature, location and form names in English, translating elements and roles, and forbidding invented facts. The post carries the creature's wiki image, ends with `Більше про цю істоту — в офіційній вікі.` linking its wiki page, and is tagged `#AniimoUA #АніімоТижня`.
+The **"Аніімо тижня" rubric** shuffles the wiki roster and takes the first creature whose `wiki_aniimo:<entryId>` key is not yet in `seen_sources`, so over time it walks the whole roster in random order without repeating one. There is no AI "pick" step: the choice is a shuffle, and Gemini's only job is the writing. The creature's page is turned into an English fact sheet — name, number, element, role, description, habitats, evolution line, trait, mobility — and the prompt turns that into a 250–700 character Ukrainian post opening with `🐾 Аніімо тижня — <Name>`, keeping creature, location and form names in English, translating elements and roles, and forbidding invented facts. The post carries the creature's wiki image, ends with `Більше про цю істоту — в офіційній вікі.` linking its wiki page, and is tagged `#Aniimo #АніімоТижня`.
 
 Official AI posts are styled as Telegram gaming-community updates, not article summaries. The prompt asks for a short headline, 1-3 compact blocks, relevant emoji markers, natural Ukrainian, no greetings, no clickbait, no raw Markdown, no public metadata, and no copied patch-note wall. Post-processing sanitizes Markdown artifacts such as `**bold**`, `*` bullets, raw headings, excessive asterisks, duplicated blank lines, misplaced hashtags, raw source URLs, and public `Дата публікації` / `Джерело` lines before moderation. The code detects broad article types from title/body keywords and passes the matching style context to Gemini: patch notes/update notice, maintenance/server notice, trailer/teaser/reveal, event/rewards/login bonus, shop/outfits/bundles, or announcement/notice. Normal posts target 400-900 characters and are capped at 1200; large patch notes are capped at 1600.
 
@@ -525,7 +525,7 @@ The admin moderation preview keeps metadata separate from the publishable draft.
 The community navigation footer is always added to every published post — official AI-generated news drafts (after the hashtags) and manual user submissions alike. It is shown in moderation so admins see the final publishable post:
 
 ```text
-#AniimoUA #Офіційно #Оновлення
+#Aniimo #Оновлення
 
 💬 Чат | 🤖 Запропонувати новину
 ```
@@ -546,12 +546,12 @@ Cross-source deduplication then catches the same story arriving through two diff
 
 ### Hashtags
 
-Tags are deterministic, not generated. Official articles (site and Steam) get `#AniimoUA` and `#Офіційно`, followed by up to **four** Ukrainian topic hashtags: `#Оновлення`, `#Виправлення`, `#Баланс`, `#Подія`, `#Магазин`, `#Косметика`, `#Трейлер`, `#Аніімо`, `#Сюжет`, `#Локації`, `#Геймплей`, `#Версія`, `#ТехнічніРоботи`, `#Рейтинг`, `#МобільнаВерсія`, `#Платформи`, `#Бета`, `#Креатори`, `#Спільнота`, with `#Анонс` as the fallback when nothing matches. The title decides; the body is consulted only when the title carries no topic word, and then only its first 600 characters, because a whole patch note mentions rewards, fixes and the store somewhere and those matches are incidental rather than the topic. There is no separate rule for "announcement"/"notice"/"letter" any more: nearly every official title carries one of those words, so it competed with the real topic and left every post looking like a generic announcement.
+Tags are deterministic, not generated. Official articles (site and Steam) get `#Aniimo`, followed by up to **four** Ukrainian topic hashtags: `#Оновлення`, `#Виправлення`, `#Баланс`, `#Подія`, `#Магазин`, `#Косметика`, `#Трейлер`, `#Аніімо`, `#Сюжет`, `#Локації`, `#Геймплей`, `#Версія`, `#ТехнічніРоботи`, `#Рейтинг`, `#МобільнаВерсія`, `#Платформи`, `#Бета`, `#Креатори`, `#Спільнота`, with `#Анонс` as the fallback when nothing matches. The title decides; the body is consulted only when the title carries no topic word, and then only its first 600 characters, because a whole patch note mentions rewards, fixes and the store somewhere and those matches are incidental rather than the topic. There is no separate rule for "announcement"/"notice"/"letter" any more: nearly every official title carries one of those words, so it competed with the real topic and left every post looking like a generic announcement.
 
 Two kinds of post opt out of that scheme, because the topic rules would mislabel them:
 
 - **Leaks** (Reddit) always carry `#Чутки` and never fall back to `#Анонс` — a datamine is not an announcement. The marker is added to every leak rather than only when no topic matched, so it is something readers can rely on and use as a filter.
-- **The creature rubric** always uses `#AniimoUA #АніімоТижня` and ignores the topic rules entirely, since a habitat list is neither news nor an announcement.
+- **The creature rubric** always uses `#Aniimo #АніімоТижня` and ignores the topic rules entirely, since a habitat list is neither news nor an announcement.
 
 ### Media
 

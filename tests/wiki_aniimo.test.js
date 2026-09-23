@@ -584,7 +584,7 @@ it("selects and renders the creature prompt", () => {
   expect(prompt).toContain("Name: Emberpup");
   expect(prompt).toContain("https://wiki.aniimo.com/en/item/001");
   expect(prompt).toContain(t("gemini.attribution.wiki_aniimo"));
-  expect(prompt).toContain("#AniimoUA #АніімоТижня");
+  expect(prompt).toContain("#Aniimo #АніімоТижня");
   expect(prompt).toContain("ВАЖЛИВО ПРО БЕЗПЕКУ");
   expect(prompt).not.toMatch(/\{[a-z_]+\}/);
 });
@@ -603,7 +603,7 @@ it("uses its own rubric hashtag", () => {
     wikiDraftInput("Аніімо тижня: Emberpup", "Name: Emberpup\nHabitats: Nimbus Fields, The Mistwoods"),
   );
 
-  expect(line).toBe("#AniimoUA #АніімоТижня");
+  expect(line).toBe("#Aniimo #АніімоТижня");
   expect(line).not.toContain("#Анонс");
 });
 
@@ -613,7 +613,7 @@ it("ignores incidental news keywords in a sheet", () => {
   const line = publicHashtagLine(
     wikiDraftInput("Аніімо тижня: Irisalis", "Description: A legendary aniimo whose evolution shifts by region."),
   );
-  expect(line).toBe("#AniimoUA #АніімоТижня");
+  expect(line).toBe("#Aniimo #АніімоТижня");
 });
 
 it("keeps the stored tags in step with the rubric", () => {

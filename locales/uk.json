@@ -180,7 +180,7 @@
     "date_marker": "Дата публікації:",
     "source_marker": "Джерело",
     "source_line": "Джерело: {source_name}",
-    "hashtags": "#AniimoUA",
+    "hashtags": "#Aniimo",
     "rumor_hashtag": "#Чутки",
     "rumor_tag": "чутки",
     "part_title": "Частина {number}",
@@ -264,7 +264,7 @@
       "source_name": "офіційна вікі Aniimo",
       "username": "wiki_aniimo_collector",
       "creature_title": "Аніімо тижня: {name}",
-      "hashtags": "#AniimoUA #АніімоТижня",
+      "hashtags": "#Aniimo #АніімоТижня",
       "tag": "аніімотижня",
       "errors": {
         "missing_gemini_api_key": "GEMINI_API_KEY відсутній. Рубрика «Аніімо тижня» пропускає AI-генерацію чернеток."
@@ -276,7 +276,7 @@
       "title": "📸 Найкращі кадри тижня: Aniimo",
       "intro": "Найкращі кадри спільноти за минулий тиждень:",
       "engagement": "А який кадр сподобався вам найбільше? 🤔 Діліться в коментарях своїми улюбленими знахідками цього тижня!",
-      "hashtags": "#AniimoUA #КадриТижня",
+      "hashtags": "#Aniimo #КадриТижня",
       "username": "fanart_digest",
       "tag": "кадритижня",
       "unknown_author": "автор невідомий"

@@ -40,7 +40,7 @@ export const WIKI_CREATURE_PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_wiki_cre
 export const POST_SEPARATOR = "---POST---";
 export const TAGS_SEPARATOR = "---TAGS---";
 // The site and the app's own Steam announcement feed both carry first-party
-// statements, so both get the long-form article prompt and the #Офіційно marker.
+// statements, so both get the long-form article prompt.
 export const OFFICIAL_SOURCE_TYPES = new Set(["official_aniimo", "steam"]);
 // Sources whose items are unofficial leaks/datamines: the short-form draft must
 // frame them as rumours (чутки), never as confirmed/official statements.
@@ -48,7 +48,10 @@ export const RUMOR_SOURCE_TYPES = new Set(["reddit"]);
 // Sources that get the dedicated "Аніімо тижня" creature-spotlight prompt (turn a
 // wiki fact sheet into a post) instead of the social short-form prompt.
 export const WIKI_SOURCE_TYPES = new Set(["wiki_aniimo"]);
-export const OFFICIAL_BASE_HASHTAGS = ["#AniimoUA", "#Офіційно"];
+// Just the channel tag. «#Офіційно» used to mark site/Steam posts, but every
+// post here is sourced from the developers anyway, so the marker separated
+// nothing and only made the tail longer.
+export const OFFICIAL_BASE_HASHTAGS = ["#Aniimo"];
 // Topic keywords, matched against the TITLE first and the body only as a
 // fallback (see topicHashtags). The lists deliberately leave out words that
 // show up in nearly every Aniimo article regardless of topic — "aniimo" itself,
@@ -670,7 +673,7 @@ function publicHashtagLine(draftInput) {
   }
 
   // Non-official (social/short-form) posts get the base tag PLUS the same topic
-  // tags, just without the #Офіційно marker, so they are tagged too — not bare.
+  // tags, so they are tagged too — not bare.
   return [t("gemini.hashtags"), ...topicHashtags(draftInput)].join(" ");
 }
 
