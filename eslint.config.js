@@ -55,6 +55,7 @@ export default [
         setTimeout: "readonly",
         clearTimeout: "readonly",
         ReadableStream: "readonly",
+        Headers: "readonly",
       },
     },
   },

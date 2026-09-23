@@ -136,3 +136,82 @@ function isMeaningfulPhotoUrl(url) {
 
   return true;
 }
+
+// One HEAD per image, a handful at a time: an album is at most a few pictures,
+// and the collector is already waiting on the article fetch.
+const IDENTITY_PROBE_TIMEOUT_SECONDS = 10.0;
+const MAX_CONCURRENT_IDENTITY_PROBES = 5;
+
+/**
+ * Ask the server what an image IS, without downloading it.
+ *
+ * Returns a key that two URLs share only when they serve the same bytes:
+ * the validator the CDN itself computes over the content, paired with the
+ * length so a weak or reused validator cannot collide two different pictures.
+ * Null means "cannot tell" — a missing ETag, a rejected HEAD, a transport
+ * error — and callers must treat that as "keep this image".
+ */
+async function imageIdentity(url) {
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(IDENTITY_PROBE_TIMEOUT_SECONDS * 1000),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    // Strip the weak-validator prefix and the quotes servers wrap ETags in, so
+    // `W/"abc"` and `"abc"` compare equal.
+    const etag = (response.headers.get("etag") ?? "").trim().replace(/^W\//i, "").replace(/^"|"$/g, "");
+    if (!etag) {
+      return null;
+    }
+    return `${etag}:${response.headers.get("content-length") ?? ""}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Drop images that are byte-identical to an earlier one in the list.
+ *
+ * A publisher often uploads the same picture twice — once as the article's
+ * cover and once inside the body — under different file names, so the URLs
+ * differ and plain URL dedup cannot see it. The reader then gets the same
+ * photo twice in one album. Comparing what the CDN reports for each URL
+ * catches it for the price of a HEAD request.
+ *
+ * Conservative on purpose: an image whose identity cannot be established is
+ * always kept, so a silent server never costs the post a picture.
+ */
+export async function dropDuplicateImages(urls) {
+  const list = [...(urls ?? [])];
+  if (list.length < 2) {
+    return list;
+  }
+
+  const identities = new Array(list.length).fill(null);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(MAX_CONCURRENT_IDENTITY_PROBES, list.length) }, async () => {
+    for (let index = next++; index < list.length; index = next++) {
+      identities[index] = await imageIdentity(list[index]);
+    }
+  });
+  await Promise.all(workers);
+
+  const kept = [];
+  const seen = new Set();
+  for (const [index, url] of list.entries()) {
+    const identity = identities[index];
+    if (identity !== null && seen.has(identity)) {
+      logger.info(`Dropping ${url}: same image as an earlier one in this post`);
+      continue;
+    }
+    if (identity !== null) {
+      seen.add(identity);
+    }
+    kept.push(url);
+  }
+  return kept;
+}

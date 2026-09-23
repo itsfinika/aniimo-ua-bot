@@ -17,6 +17,7 @@ import { buildUtcTimeConversionNotes } from "../date_utils.js";
 import { GeminiDraftGenerator, geminiDraftInput } from "../gemini.js";
 import { t } from "../i18n.js";
 import { getLogger } from "../logger.js";
+import { dropDuplicateImages } from "../media_parser.js";
 import { sendSubmissionToModeration } from "../moderation.js";
 import { compareCalendarDates, dateFromIsoFormat, errorText, fromIsoFormat, hasIsoOffset } from "../pyutils.js";
 import { collectPublishableLinks } from "../source_links.js";
@@ -353,7 +354,10 @@ export class BaseNewsCollector {
       return false;
     }
 
-    const albumImages = albumImagesOf(candidate);
+    // The same picture often arrives twice — as the article's cover and again
+    // inside its body, under two file names — so the album is checked for
+    // byte-identical images before it is stored.
+    const albumImages = await dropDuplicateImages(albumImagesOf(candidate));
     try {
       let submissionId;
       // A single-part draft with 2+ photos becomes ONE grouped album post
