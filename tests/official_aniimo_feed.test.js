@@ -362,14 +362,24 @@ it("collects the cover and the site-hosted body images, deduplicated", async () 
   ]);
 });
 
-it("caps the media at ten items", () => {
+// Four, so Telegram lays the album out as an even 2x2 grid. Five or more turn
+// into a cropped strip plus a row of unreadable thumbnails, which is what made a
+// walkthrough look shuffled even with the images in the article's own order.
+it("caps the media at four items, keeping the article's own order", () => {
   const imgs = Array.from(
     { length: 15 },
     (_, index) => `<img src="https://worldx-website-cdn.aniimo.com/office/aniimo/pic_${index}.png">`,
   ).join("");
 
   const media = collectArticleMedia(null, imgs, "https://www.aniimo.com/newslist/detail/1");
+  expect(MAX_ARTICLE_MEDIA_ITEMS).toBe(4);
   expect(media.media_urls).toHaveLength(MAX_ARTICLE_MEDIA_ITEMS);
+  expect(media.media_urls).toEqual([
+    "https://worldx-website-cdn.aniimo.com/office/aniimo/pic_0.png",
+    "https://worldx-website-cdn.aniimo.com/office/aniimo/pic_1.png",
+    "https://worldx-website-cdn.aniimo.com/office/aniimo/pic_2.png",
+    "https://worldx-website-cdn.aniimo.com/office/aniimo/pic_3.png",
+  ]);
   expect(media.media_url).toBe("https://worldx-website-cdn.aniimo.com/office/aniimo/pic_0.png");
 });
 

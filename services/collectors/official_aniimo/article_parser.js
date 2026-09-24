@@ -7,9 +7,17 @@ import { normalizeImageUrl } from "./news_fetcher.js";
 const logger = getLogger("services.collectors.official_aniimo.article_parser");
 
 export const MAX_ARTICLE_TEXT_LENGTH = 12000;
-// Telegram media groups allow at most 10 items, and the runner turns a
-// single-part draft with several photos into exactly one album.
-export const MAX_ARTICLE_MEDIA_ITEMS = 10;
+// Four, not Telegram's media-group maximum of ten, and the same number the
+// generic media parser has always used.
+//
+// The limit is about layout, not capacity. Telegram lays a media group out by
+// count: four images of one aspect ratio become an even 2x2 grid where each is
+// the same size and a UI screenshot stays readable, while five turn into one
+// letterboxed strip, one large image and a row of three thumbnails — which is
+// how a five-screenshot walkthrough ended up looking shuffled even though the
+// images were in the article's own order. Anything past the fourth is left to
+// the "full details on the official site" link.
+export const MAX_ARTICLE_MEDIA_ITEMS = 4;
 
 // Every timestamp the API returns is server wall time in UTC+8 with no offset
 // attached ("2026-09-22 00:00:12" for a post scheduled at "00:00 (UTC+8)").
