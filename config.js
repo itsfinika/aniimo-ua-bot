@@ -73,6 +73,20 @@ export const DEFAULT_FANART_DIGEST_HOUR = 18;
 // Telegram media groups allow at most 10 items.
 export const DEFAULT_FANART_DIGEST_COUNT = 10;
 
+// The "Guide" flair on r/Aniimo, which the community applies carefully — unlike
+// "News", where mis-flaired questions and reactions pile up.
+export const DEFAULT_GUIDES_SUBREDDIT = "Aniimo";
+export const DEFAULT_GUIDES_FLAIR = "Guide";
+// Wednesday 18:00: mid-week, clear of the Monday creature rubric and the Friday
+// shots album, so the three weekly posts do not land on top of each other.
+export const DEFAULT_GUIDES_DIGEST_WEEKDAY = 2;
+export const DEFAULT_GUIDES_DIGEST_HOUR = 18;
+// Five entries is a post a reader finishes; past that the list stops being read.
+export const DEFAULT_GUIDES_DIGEST_COUNT = 5;
+// A Telegram text message caps at 4096 characters, and each entry costs roughly
+// 200 including its link, so this leaves room for the header and the footer.
+export const MAX_GUIDES_DIGEST_COUNT = 10;
+
 const DEFAULT_OFFICIAL_NEWS_URL = "https://www.aniimo.com/newslist";
 const DEFAULT_ARTICLE_TIMEZONE = "Europe/Kyiv";
 // Aniimo has no official Bluesky account. With the actor empty the registry keeps
@@ -203,6 +217,17 @@ export function loadConfig(env = process.env) {
     10,
   );
 
+  const enableGuidesDigest = optionalBool(env, "ENABLE_GUIDES_DIGEST", false);
+  const guidesSubreddit = (env.GUIDES_SUBREDDIT ?? DEFAULT_GUIDES_SUBREDDIT).trim() || DEFAULT_GUIDES_SUBREDDIT;
+  const guidesFlair = (env.GUIDES_FLAIR ?? DEFAULT_GUIDES_FLAIR).trim() || DEFAULT_GUIDES_FLAIR;
+  const guidesDigestWeekday = optionalWeekday(env, "GUIDES_DIGEST_WEEKDAY", DEFAULT_GUIDES_DIGEST_WEEKDAY);
+  const guidesDigestHour = optionalHour(env, "GUIDES_DIGEST_HOUR", DEFAULT_GUIDES_DIGEST_HOUR);
+  const guidesDigestCount = Math.min(
+    optionalLenientNonNegativeInt(env, "GUIDES_DIGEST_COUNT", DEFAULT_GUIDES_DIGEST_COUNT) ||
+      DEFAULT_GUIDES_DIGEST_COUNT,
+    MAX_GUIDES_DIGEST_COUNT,
+  );
+
   return Object.freeze({
     bot_token: botToken,
     admin_chat_id: adminChatId,
@@ -271,6 +296,12 @@ export function loadConfig(env = process.env) {
     fanart_digest_weekday: fanartDigestWeekday,
     fanart_digest_hour: fanartDigestHour,
     fanart_digest_count: fanartDigestCount,
+    enable_guides_digest: enableGuidesDigest,
+    guides_subreddit: guidesSubreddit,
+    guides_flair: guidesFlair,
+    guides_digest_weekday: guidesDigestWeekday,
+    guides_digest_hour: guidesDigestHour,
+    guides_digest_count: guidesDigestCount,
   });
 }
 

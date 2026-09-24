@@ -6,6 +6,7 @@ import { getLogger } from "./logger.js";
 import { SOURCE_ATTRIBUTIONS, allowsPublicSourceAttribution, stripPublicSourceAttribution } from "./post_footer.js";
 import {
   charLength,
+  collapseWhitespace,
   errorText,
   escapeRegExp,
   formatTemplate,
@@ -36,6 +37,12 @@ export const SHORT_FORM_PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_shortform_u
 export const STYLE_PROMPT_PATH = path.join(PROMPTS_DIR, "official_news_style.md");
 export const DEDUP_PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_dedup_uk.md");
 export const WIKI_CREATURE_PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_wiki_creature_uk.md");
+export const GUIDES_PROMPT_PATH = path.join(PROMPTS_DIR, "gemini_guides_uk.md");
+
+// How much of a guide's body the summariser is shown. A Reddit guide can run to
+// several thousand characters of build tables; the first part carries what the
+// post is actually about, and capping it keeps one weekly call cheap.
+export const GUIDE_BODY_EXCERPT_CHARS = 900;
 
 export const POST_SEPARATOR = "---POST---";
 export const TAGS_SEPARATOR = "---TAGS---";
@@ -287,6 +294,22 @@ export class GeminiDraftGenerator {
   }
 
   /**
+   * Turn the week's Reddit guides into Ukrainian {title, summary} pairs — ONE
+   * model call for the whole digest, not one per guide.
+   *
+   * Returns an array positionally aligned with `guides`; an entry the model
+   * skipped or mangled comes back as null, and the caller falls back to the
+   * guide's own English title rather than dropping it from the digest.
+   */
+  async summariseGuides(guides) {
+    if (!guides.length) {
+      return [];
+    }
+    const raw = await this.generateOnce(buildGuidesPrompt(guides));
+    return parseGuideSummaries(raw, guides.length);
+  }
+
+  /**
    * One model call, with the same bounded retry the Python version performed
    * inside its worker thread.
    */
@@ -436,6 +459,93 @@ function cleanResponseText(value) {
 function buildDedupPrompt(newTitle, existingTitles) {
   const numbered = existingTitles.map((title, index) => `${index + 1}. ${title}`).join("\n");
   return formatTemplate(loadDedupPromptTemplate(), { new_title: newTitle, existing_titles: numbered });
+}
+
+/**
+ * Lay the week's guides out for the summariser: number, original title, author
+ * and a capped excerpt of the body, each block clearly bounded so an injected
+ * "end of data" line inside one guide cannot make the next look like a rule.
+ */
+export function buildGuidesPrompt(guides) {
+  const blocks = guides.map((guide, index) => {
+    const excerpt = collapseWhitespace(String(guide.body_text ?? "")).slice(0, GUIDE_BODY_EXCERPT_CHARS);
+    return [
+      `--- ГАЙД ${index + 1} ---`,
+      `Заголовок: ${String(guide.title ?? "").trim()}`,
+      `Автор: ${String(guide.author ?? "").trim()}`,
+      `Текст: ${excerpt || "(без тексту, лише заголовок і зображення)"}`,
+    ].join("\n");
+  });
+  return formatTemplate(loadGuidesPromptTemplate(), {
+    count: guides.length,
+    guides: blocks.join("\n\n"),
+  });
+}
+
+/**
+ * Parse the summariser's JSON array into `expected` slots.
+ *
+ * Every field is validated and anything unusable becomes null in its slot: a
+ * digest that lists one guide by its English title is fine, a digest that
+ * silently loses a guide or prints "undefined" is not. The model's own `n` is
+ * honoured when it is a sane 1-based index, so a reordered array still lands
+ * each summary on the right guide.
+ */
+export function parseGuideSummaries(raw, expected) {
+  const results = new Array(expected).fill(null);
+  const text = cleanResponseText(raw);
+  const match = /\[[\s\S]*\]/.exec(text);
+  if (!match) {
+    return results;
+  }
+
+  let data;
+  try {
+    data = JSON.parse(match[0]);
+  } catch {
+    return results;
+  }
+  if (!Array.isArray(data)) {
+    return results;
+  }
+
+  data.forEach((entry, position) => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      return;
+    }
+    const index = guideSlotIndex(entry.n, position, expected);
+    if (index === null || results[index] !== null) {
+      return;
+    }
+    const title = cleanGuideField(entry.title);
+    const summary = cleanGuideField(entry.summary);
+    if (!title) {
+      return;
+    }
+    results[index] = { title, summary };
+  });
+
+  return results;
+}
+
+function guideSlotIndex(rawIndex, position, expected) {
+  const parsed = Number.parseInt(String(rawIndex ?? "").trim(), 10);
+  const index = Number.isInteger(parsed) && parsed >= 1 && parsed <= expected ? parsed - 1 : position;
+  return index < expected ? index : null;
+}
+
+/**
+ * A single clean line of model text: no markup, no newlines, no stray URL.
+ *
+ * The URL strip is deliberate. The guide bodies are untrusted forum text, and
+ * the prompt already forbids copying links out of them; this makes a model that
+ * ignores that instruction unable to put a link into the channel anyway.
+ */
+function cleanGuideField(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return collapseWhitespace(value.replace(/https?:\/\/\S+/gi, "").replace(/[*_`#]/g, "")).trim();
 }
 
 /**
@@ -1296,6 +1406,10 @@ function loadShortFormPromptTemplate() {
 
 function loadWikiCreaturePromptTemplate() {
   return loadCachedText(WIKI_CREATURE_PROMPT_PATH);
+}
+
+function loadGuidesPromptTemplate() {
+  return loadCachedText(GUIDES_PROMPT_PATH, { trim: false });
 }
 
 function loadDedupPromptTemplate() {

@@ -13,6 +13,7 @@ import { runAllCollectors } from "./services/collectors/registry.js";
 import { startWikiAniimoScheduler } from "./services/collectors/wiki_aniimo/collector.js";
 import { startDbBackupScheduler } from "./services/db_backup.js";
 import { startFanartDigestScheduler } from "./services/digests/fanart.js";
+import { startGuidesDigestScheduler } from "./services/digests/guides.js";
 import { startWeeklyReportScheduler } from "./services/reports.js";
 import { t } from "./services/i18n.js";
 import { getLogger, setLogLevel } from "./services/logger.js";
@@ -61,6 +62,7 @@ export async function run() {
   const discordTask = startDiscordModeration(config);
   const backupTask = startDbBackupScheduler(config);
   const fanartDigestTask = startFanartDigestScheduler(bot, config, database);
+  const guidesDigestTask = startGuidesDigestScheduler(bot, config, database);
   const wikiAniimoTask = startWikiAniimoScheduler(bot, config, database);
   const weeklyReportTask = startWeeklyReportScheduler(bot, config, database);
 
@@ -80,6 +82,7 @@ export async function run() {
       discordTask,
       backupTask,
       fanartDigestTask,
+      guidesDigestTask,
       wikiAniimoTask,
       weeklyReportTask,
     ]);
@@ -207,7 +210,7 @@ export async function applyAdminChatCommands(bot, config) {
     return;
   }
 
-  const adminCommands = ["fetch_news", "redraft", "fanartdigest", "aniimoweek", "stats", "cleanup", "cancel"].map((name) => ({
+  const adminCommands = ["fetch_news", "redraft", "fanartdigest", "guidesdigest", "aniimoweek", "stats", "cleanup", "cancel"].map((name) => ({
     command: name,
     description: t(`commands.${name}`),
   }));

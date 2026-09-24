@@ -21,10 +21,11 @@ import { getLogger } from "./logger.js";
 
 const logger = getLogger("services.reports");
 
-// Sources that never pass through a collector: the fan-art digest queues itself,
-// and readers' own submissions carry no source type at all.
+// Sources that never pass through a collector: the two weekly digests queue
+// themselves, and readers' own submissions carry no source type at all.
 const USER_SOURCE = "";
 export const FANART_SOURCE_TYPE = "reddit_fanart";
+export const GUIDES_SOURCE_TYPE = "reddit_guides";
 
 /**
  * Gather the window's activity and render it.
@@ -50,6 +51,7 @@ function reportSources(config) {
   return [
     ...collectors,
     { source_type: FANART_SOURCE_TYPE, title: t("reports.sources.fanart"), enabled: Boolean(config?.enable_fanart_digest) },
+    { source_type: GUIDES_SOURCE_TYPE, title: t("reports.sources.guides"), enabled: Boolean(config?.enable_guides_digest) },
     { source_type: USER_SOURCE, title: t("reports.sources.user"), enabled: true },
   ];
 }

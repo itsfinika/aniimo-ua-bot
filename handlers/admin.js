@@ -21,6 +21,7 @@ import {
 } from "../services/collectors/registry.js";
 import { runWikiAniimoOnce } from "../services/collectors/wiki_aniimo/collector.js";
 import { runFanartDigestOnce } from "../services/digests/fanart.js";
+import { runGuidesDigestOnce } from "../services/digests/guides.js";
 import { formatAdminPreview } from "../services/formatter.js";
 import { buildActivityReport } from "../services/reports.js";
 import { t } from "../services/i18n.js";
@@ -251,6 +252,40 @@ export function buildAdminComposer({
     }
 
     await ctx.reply(created ? t("admin.fanart_digest.queued") : t("admin.fanart_digest.skipped"));
+  });
+
+  /**
+   * Manually build this week's guides digest into the moderation queue. Same
+   * shape as /fanartdigest, including the `force` argument and the note when the
+   * scheduler itself is off.
+   */
+  composer.command("guidesdigest", async (ctx, next) => {
+    if (!adminOrPrivateChat(ctx)) return next();
+    if (!isAdminUser(ctx.from?.id)) {
+      await ctx.reply(t("admin.guides_digest.no_permission"));
+      return;
+    }
+
+    if (ctx.chat.id !== config.admin_chat_id && chatType(ctx) !== "private") {
+      await ctx.reply(t("admin.guides_digest.wrong_chat"));
+      return;
+    }
+
+    const force = String(ctx.match ?? "").trim().toLowerCase() === "force";
+    if (!config.enable_guides_digest) {
+      await ctx.reply(t("admin.guides_digest.scheduler_disabled"));
+    }
+    await ctx.reply(t("admin.guides_digest.started"));
+    let created;
+    try {
+      created = await runGuidesDigestOnce(bot, config, db, { force });
+    } catch (error) {
+      logger.exception("Manual guides digest failed", error);
+      await ctx.reply(t("admin.guides_digest.failed"));
+      return;
+    }
+
+    await ctx.reply(created ? t("admin.guides_digest.queued") : t("admin.guides_digest.skipped"));
   });
 
   /**

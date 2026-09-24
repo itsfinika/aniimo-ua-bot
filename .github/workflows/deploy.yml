@@ -204,6 +204,13 @@ jobs:
           WEEKLY_REPORT_WEEKDAY: ${{ secrets.WEEKLY_REPORT_WEEKDAY }}
           WEEKLY_REPORT_HOUR: ${{ secrets.WEEKLY_REPORT_HOUR }}
           FANART_DIGEST_COUNT: ${{ secrets.FANART_DIGEST_COUNT }}
+          # Weekly guides digest.
+          ENABLE_GUIDES_DIGEST: ${{ secrets.ENABLE_GUIDES_DIGEST }}
+          GUIDES_SUBREDDIT: ${{ secrets.GUIDES_SUBREDDIT }}
+          GUIDES_FLAIR: ${{ secrets.GUIDES_FLAIR }}
+          GUIDES_DIGEST_WEEKDAY: ${{ secrets.GUIDES_DIGEST_WEEKDAY }}
+          GUIDES_DIGEST_HOUR: ${{ secrets.GUIDES_DIGEST_HOUR }}
+          GUIDES_DIGEST_COUNT: ${{ secrets.GUIDES_DIGEST_COUNT }}
         run: |
           set -euo pipefail
 
@@ -304,5 +311,11 @@ jobs:
             printf 'export WEEKLY_REPORT_WEEKDAY=%q\n'            "$WEEKLY_REPORT_WEEKDAY";
             printf 'export WEEKLY_REPORT_HOUR=%q\n'               "$WEEKLY_REPORT_HOUR";
             printf 'export FANART_DIGEST_COUNT=%q\n'              "$FANART_DIGEST_COUNT";
+            printf 'export ENABLE_GUIDES_DIGEST=%q\n'             "$ENABLE_GUIDES_DIGEST";
+            printf 'export GUIDES_SUBREDDIT=%q\n'                 "$GUIDES_SUBREDDIT";
+            printf 'export GUIDES_FLAIR=%q\n'                     "$GUIDES_FLAIR";
+            printf 'export GUIDES_DIGEST_WEEKDAY=%q\n'            "$GUIDES_DIGEST_WEEKDAY";
+            printf 'export GUIDES_DIGEST_HOUR=%q\n'               "$GUIDES_DIGEST_HOUR";
+            printf 'export GUIDES_DIGEST_COUNT=%q\n'              "$GUIDES_DIGEST_COUNT";
             cat scripts/deploy-remote.sh; } \
             | ssh "${ssh_opts[@]}" "$target" bash -s

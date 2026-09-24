@@ -39,6 +39,16 @@ const SOURCE_LINE_PREFIXES = [GENERIC_SOURCE_PREFIX.toLowerCase(), "source:"];
 // wiki rubric, once the only member, now uses its CTA line). The set and the
 // stripping mechanism stay so a future licence-bound source can opt back in.
 export const PUBLIC_SOURCE_ATTRIBUTION_TYPES = new Set();
+// Sources whose draft_text is ALREADY finished HTML, built by the digest itself
+// with its own per-item hyperlinks and footer, and therefore sent as-is instead
+// of being escaped. The single-`source_url` attribution the renderer applies
+// cannot express a list where every entry links somewhere different.
+//
+// Everything the digest interpolates into that HTML is escaped at build time —
+// the trust model is the one the fan-art album caption has used since it
+// shipped, just reached through formatPostHtml so the moderation card, the
+// admin preview and the publisher all agree on one rendering.
+export const PRERENDERED_SOURCE_TYPES = new Set(["reddit_guides"]);
 // Footer link copy and URLs both live in locales/uk.json under post_footer.links.
 export const FOOTER_LINK_KEYS = [
   "post_footer.links.chat",
@@ -75,6 +85,12 @@ export function formatPostHtml(
   text,
   { source_url = null, allow_source_link = false, include_community_footer = false, source_type = null } = {},
 ) {
+  // A pre-rendered body is already the finished message: it carries its own
+  // links and footer, so escaping it here would print the markup instead.
+  if (PRERENDERED_SOURCE_TYPES.has(String(source_type ?? "").trim())) {
+    return String(text ?? "").split(FOOTER_SENTINEL).join("");
+  }
+
   const publicText = hidesSourceAttribution(source_type) ? stripPublicSourceAttribution(text) : text;
   const body = prepareBodyText(publicText, include_community_footer);
   const renderedBody = formatBodyHtml(body, {
