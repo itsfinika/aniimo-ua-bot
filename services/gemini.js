@@ -70,15 +70,20 @@ const OFFICIAL_TOPIC_TAG_RULES = [
   [["outfit", "costume", "skin", "cosmetic", "accessory", "accessories", "hair", "appearance"], "#Косметика"],
   [["trailer", "teaser", "pv", "showcase"], "#Трейлер"],
   [["creature", "legendary", "evolution", "evolve", "hatch", "egg", "bond pact", "sparkling", "prismana"], "#Аніімо"],
-  [["character", "companion", "npc", "story", "quest", "legendary journey", "chapter"], "#Сюжет"],
+  // Bare "story" is absent for the same reason as "gameplay": launch and event
+  // copy invites you to "begin your story" in its opening lines, which is where
+  // the body is scanned, and that is not what the post is about.
+  [["storyline", "main quest", "side quest", "npc", "legendary journey", "chapter"], "#Сюжет"],
   [["region", "map", "habitat", "area", "zone"], "#Локації"],
   // Anti-cheat and account-rules posts, which read nothing like a feature
-  // announcement. This rule sits above the gameplay one on purpose: their lead
+  // announcement. These three sit above the gameplay rule on purpose: their lead
   // paragraph always promises "a great gameplay experience", which used to tag
-  // a ban-policy notice «#Геймплей».
+  // a ban-policy notice «#Геймплей». They are kept apart rather than merged into
+  // one catch-all so a post picks up only the angles it actually covers — a ban
+  // wave is «#Порушення», a policy update is «#Правила», a phishing warning is
+  // «#Безпека», and a full fair-play notice is all three.
   [
     [
-      "fair play",
       "prohibited activit",
       "cheat",
       "cheating",
@@ -86,11 +91,16 @@ const OFFICIAL_TOPIC_TAG_RULES = [
       "botting",
       "multiboxing",
       "third-party software",
-      "account trading",
-      "account sharing",
       "violation",
+      "ban wave",
+      "suspension",
     ],
-    "#ЧеснаГра",
+    "#Порушення",
+  ],
+  [["fair play", "rules", "policy", "policies", "terms of service", "code of conduct", "penalt"], "#Правила"],
+  [
+    ["account security", "account trading", "account sharing", "phishing", "stolen account", "unofficial top-up"],
+    "#Безпека",
   ],
   // "gameplay" deliberately absent: it is boilerplate in the opening lines of
   // almost every official post, and the body is scanned only there.
@@ -718,11 +728,19 @@ function officialDatabaseTags(draftInput) {
  * announcement just because no keyword hit.
  */
 function topicHashtags(draftInput, { fallback = true } = {}) {
-  let topicTags = [];
-  for (const text of matchTexts(draftInput)) {
-    topicTags = matchTopicTags(text);
-    if (topicTags.length) {
+  // The title decides first and its tags come first, but a title rarely names
+  // every angle: "Aniimo Fair Play Announcement" is about the rules AND the
+  // bans AND account security, and only the first of those is in the headline.
+  // So the body lead tops the list up to the cap instead of being skipped
+  // whenever the title matched anything at all.
+  const [title, bodyLead] = matchTexts(draftInput);
+  const topicTags = matchTopicTags(title);
+  for (const hashtag of matchTopicTags(bodyLead)) {
+    if (topicTags.length >= MAX_TOPIC_HASHTAGS) {
       break;
+    }
+    if (!topicTags.includes(hashtag)) {
+      topicTags.push(hashtag);
     }
   }
 
@@ -730,10 +748,7 @@ function topicHashtags(draftInput, { fallback = true } = {}) {
     topicTags.push("#Анонс");
   }
 
-  // Up to four, and only what actually matched: the noise came from scanning a
-  // whole patch note, not from the count, so a post that genuinely touches
-  // four topics may carry four tags.
-  return topicTags.slice(0, 4);
+  return topicTags.slice(0, MAX_TOPIC_HASHTAGS);
 }
 
 function matchTopicTags(text) {
@@ -758,6 +773,11 @@ function matchTopicTags(text) {
 // whole patch note mentions rewards, fixes and the store somewhere, so only
 // its opening is read. Beyond that the matches are incidental, not the topic.
 const BODY_TOPIC_SCAN_CHARS = 600;
+
+// Up to four, and only what actually matched: the noise came from scanning a
+// whole patch note, not from the count, so a post that genuinely touches four
+// topics may carry four tags.
+const MAX_TOPIC_HASHTAGS = 4;
 
 function matchTexts(draftInput) {
   return [

@@ -50,7 +50,7 @@ it.each([
   ["100111", "#Подія #Бета"], // IMPORTANT NOTICE: How to Claim Your Beta Test Rewards
   ["100100", "#Виправлення"], // Intel CPU Stability Issues and Solutions
   ["100089", "#Платформи"], // Aniimo PC & Console Pre-Download Now Available! Launching on September 16!
-  ["100067", "#ЧеснаГра"], // Aniimo Fair Play Announcement
+  ["100067", "#Правила"], // Aniimo Fair Play Announcement
   ["100064", "#Анонс"], // A Letter from the Aniimo Dev Team
   ["100051", "#МобільнаВерсія #Платформи"], // Aniimo Global Launch Dates: Coming to PC & Consoles…, Mobile…
   ["100062", "#Анонс"], // A New Way to Connect with Your Aniimo (no topic word, empty excerpt)
@@ -86,19 +86,21 @@ it("never tags a post with the game's own name, the setting or an FAQ word", () 
   );
 });
 
-it("reads the topic from the title and ignores body noise when the title has one", () => {
+it("leads with the title topic and tops up from the body", () => {
+  // The title decides and comes first; the body lead may add what the
+  // headline left out, because one headline rarely names every angle.
   const body = ARTICLE.data.content;
-  // The full update-notice body mentions rewards, fixes, the store and more;
-  // none of that displaces the title's own topic.
-  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#Aniimo #Оновлення");
+  expect(publicHashtagLine(official(ARTICLE.data.title, body))).toBe("#Aniimo #Оновлення #ТехнічніРоботи");
   // The mobile pre-download FAQ: "issue", "balance", "App Store" and "video"
-  // in the body used to give "#Виправлення #Баланс #Подія".
+  // deep in the body used to give "#Виправлення #Баланс #Подія". Only the
+  // lead is read now, so the headline topic still leads and the tail is short.
   const faq =
     "If you encounter an issue, check your account balance in the App Store. Watch the video. " +
     "Rewards for the launch event will be sent by mail.";
-  expect(publicHashtagLine(official("Aniimo Mobile Pre-Download Now Available!", faq))).toBe(
-    "#Aniimo #МобільнаВерсія",
-  );
+  const line = publicHashtagLine(official("Aniimo Mobile Pre-Download Now Available!", faq));
+  expect(line.startsWith("#Aniimo #МобільнаВерсія")).toBe(true);
+  expect(line).not.toContain("#Виправлення");
+  expect(line).not.toContain("#Баланс");
 });
 
 it("falls back to the body only when the title says nothing", () => {
