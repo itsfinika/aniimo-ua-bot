@@ -45,6 +45,8 @@ export const DEFAULT_REDDIT_EXCLUDE_KEYWORDS = Object.freeze(["megathread"]);
 // (OFFICIAL_NEWS_URL) is what a published post links to.
 export const DEFAULT_OFFICIAL_NEWS_API_URL = "https://worldx-office-api.aniimo.com";
 export const DEFAULT_OFFICIAL_NEWS_REGION = "en";
+// Both binaries are expected on PATH inside the container image.
+export const DEFAULT_YTDLP_PATH = "yt-dlp";
 
 // Steam's own "Community Announcements" feed for the app: every item is an
 // official post, so it counts as an official source alongside the site.
@@ -178,6 +180,13 @@ export function loadConfig(env = process.env) {
   // Last resort for an IP that YouTube blocks even with a token: the Cookie
   // header of a throwaway Google account. Empty means anonymous.
   const youtubeCookie = (env.YOUTUBE_COOKIE ?? "").trim();
+  // yt-dlp is what gets a native video past 360p; see services/ytdlp_video.js.
+  // On by default because the container ships it, and harmless where it is
+  // missing: the downloader probes once and falls back.
+  const enableYtdlpDownload = optionalBool(env, "ENABLE_YTDLP_DOWNLOAD", true);
+  const ytdlpPath = (env.YTDLP_PATH ?? DEFAULT_YTDLP_PATH).trim() || DEFAULT_YTDLP_PATH;
+  // Empty means "let yt-dlp find ffmpeg on PATH", which is the container case.
+  const ffmpegPath = (env.FFMPEG_PATH ?? "").trim();
 
   const enableRedditSource = optionalBool(env, "ENABLE_REDDIT_SOURCE", false);
   const redditSubreddit = (env.REDDIT_SUBREDDIT ?? DEFAULT_REDDIT_SUBREDDIT).trim() || DEFAULT_REDDIT_SUBREDDIT;
@@ -274,6 +283,9 @@ export function loadConfig(env = process.env) {
     youtube_video_max_mb: youtubeVideoMaxMb,
     enable_youtube_po_token: enableYoutubePoToken,
     youtube_cookie: youtubeCookie,
+    enable_ytdlp_download: enableYtdlpDownload,
+    ytdlp_path: ytdlpPath,
+    ffmpeg_path: ffmpegPath,
     enable_reddit_source: enableRedditSource,
     reddit_subreddit: redditSubreddit,
     reddit_flairs: redditFlairs,

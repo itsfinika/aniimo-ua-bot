@@ -182,6 +182,7 @@ jobs:
           ENABLE_YOUTUBE_VIDEO_DOWNLOAD: ${{ secrets.ENABLE_YOUTUBE_VIDEO_DOWNLOAD }}
           YOUTUBE_VIDEO_MAX_MB: ${{ secrets.YOUTUBE_VIDEO_MAX_MB }}
           ENABLE_YOUTUBE_PO_TOKEN: ${{ secrets.ENABLE_YOUTUBE_PO_TOKEN }}
+          ENABLE_YTDLP_DOWNLOAD: ${{ secrets.ENABLE_YTDLP_DOWNLOAD }}
           YOUTUBE_COOKIE: ${{ secrets.YOUTUBE_COOKIE }}
           ENABLE_REDDIT_SOURCE: ${{ secrets.ENABLE_REDDIT_SOURCE }}
           REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
@@ -290,6 +291,7 @@ jobs:
             printf 'export ENABLE_YOUTUBE_VIDEO_DOWNLOAD=%q\n'    "$ENABLE_YOUTUBE_VIDEO_DOWNLOAD";
             printf 'export YOUTUBE_VIDEO_MAX_MB=%q\n'             "$YOUTUBE_VIDEO_MAX_MB";
             printf 'export ENABLE_YOUTUBE_PO_TOKEN=%q\n'          "$ENABLE_YOUTUBE_PO_TOKEN";
+            printf 'export ENABLE_YTDLP_DOWNLOAD=%q\n'          "$ENABLE_YTDLP_DOWNLOAD";
             printf 'export YOUTUBE_COOKIE=%q\n'                   "$YOUTUBE_COOKIE";
             printf 'export ENABLE_REDDIT_SOURCE=%q\n'             "$ENABLE_REDDIT_SOURCE";
             printf 'export REDDIT_SUBREDDIT=%q\n'                 "$REDDIT_SUBREDDIT";

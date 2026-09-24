@@ -15,11 +15,32 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
+# yt-dlp + ffmpeg, the only non-Node runtime dependencies.
+#
+# They exist for ONE reason: YouTube serves most videos over SABR, where the
+# separate video and audio tracks carry no fetchable URLs, and youtubei.js can
+# negotiate only the combined 360p stream. yt-dlp speaks that protocol and
+# reaches the real tracks; ffmpeg merges them (a stream copy, no re-encode).
+# Measured on a 116-second clip: 640x360 before, 1280x720 after.
+#
+# The `yt-dlp_linux` release is a self-contained binary, so no Python is needed.
+# It is pinned: YouTube changes often enough that an unpinned "latest" would make
+# the image non-reproducible, and bumping this line is the update. If either
+# binary is missing the bot still posts videos, just through the old path, so a
+# failed pin degrades instead of breaking.
+ARG YTDLP_VERSION=2026.08.19
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
+    && curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}/yt-dlp_linux" \
+       -o /usr/local/bin/yt-dlp \
+    && chmod a+rx /usr/local/bin/yt-dlp \
+    && apt-get purge -y curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies first so this layer is cached across code-only changes.
-# `npm ci` also proves package-lock.json resolves. The image is pure Node: the
-# database driver is the built-in node:sqlite and YouTube downloads go through
-# youtubei.js, so there is no native build step, no toolchain and no extra
-# runtime to install.
+# `npm ci` also proves package-lock.json resolves. There is still no native build
+# step: the database driver is the built-in node:sqlite.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 

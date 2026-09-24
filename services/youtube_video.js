@@ -23,11 +23,17 @@
  * merge is needed. Anything that fails — a missing format, a blocked request, an
  * oversized file — returns null and the caller falls back to the link preview,
  * exactly as before.
+ *
+ * YouTube has since moved most videos to SABR, where that combined stream is the
+ * only one this client can reach and it is capped at 360p. {@link
+ * ./ytdlp_video.js} gets past that with yt-dlp when the container has it, and
+ * runs FIRST; everything here remains the fallback for a container that does not.
  */
 
 import vm from "node:vm";
 
 import { getLogger } from "./logger.js";
+import { downloadWithYtDlp } from "./ytdlp_video.js";
 import { errorText, sliceChars, WORD } from "./pyutils.js";
 import { urlsplit } from "./urlutils.js";
 
@@ -65,7 +71,10 @@ let evaluatorInstalled = false;
  * `cookie` (optional) is a Google cookie header, for the case where even a PO
  * token is not enough for the server's IP; `usePoToken` turns the token off.
  */
-export async function downloadYoutubeVideo(url, { maxBytes, cookie = "", usePoToken = true }) {
+export async function downloadYoutubeVideo(
+  url,
+  { maxBytes, cookie = "", usePoToken = true, ytDlp = null } = {},
+) {
   if (!url || !url.trim()) {
     return null;
   }
@@ -74,6 +83,21 @@ export async function downloadYoutubeVideo(url, { maxBytes, cookie = "", usePoTo
   if (videoId === null) {
     logger.warning(`Could not read a video id from ${url}; using the link preview`);
     return null;
+  }
+
+  // yt-dlp first when the container has it: it reaches the separate video and
+  // audio tracks, which is the only way past 360p (see ytdlp_video.js). Its
+  // every failure returns null, so the pure-JavaScript path below still runs.
+  if (ytDlp !== null && ytDlp.enabled) {
+    const better = await downloadWithYtDlp(url.trim(), {
+      maxBytes,
+      cookie,
+      binary: ytDlp.binary,
+      ffmpegPath: ytDlp.ffmpegPath,
+    });
+    if (better !== null) {
+      return better;
+    }
   }
 
   let client;

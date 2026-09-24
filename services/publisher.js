@@ -137,6 +137,7 @@ async function publishTextOrYoutubeVideo(bot, config, submission, text, { parseM
       maxBytes: Math.max(1, config.youtube_video_max_mb) * 1024 * 1024,
       cookie: config.youtube_cookie,
       usePoToken: config.enable_youtube_po_token,
+      ytDlp: ytDlpOptions(config),
     });
     return;
   }
@@ -241,6 +242,18 @@ export async function sendDownloadedVideoPost(bot, chatId, videoUrl, caption, { 
 }
 
 /**
+ * The yt-dlp settings the downloader needs, gathered in one place so the publish
+ * and moderation paths cannot drift apart.
+ */
+export function ytDlpOptions(config) {
+  return {
+    enabled: Boolean(config.enable_ytdlp_download),
+    binary: config.ytdlp_path,
+    ffmpegPath: config.ffmpeg_path,
+  };
+}
+
+/**
  * Send a YouTube post as a NATIVE inline video (downloaded + re-uploaded),
  * falling back to a text post with a playable link preview when the video is
  * unavailable, too large, or the upload is rejected. Returns the primary sent
@@ -251,9 +264,9 @@ export async function sendYoutubePost(
   chatId,
   sourceUrl,
   caption,
-  { parseMode, linkPreview, maxBytes, cookie = "", usePoToken = true },
+  { parseMode, linkPreview, maxBytes, cookie = "", usePoToken = true, ytDlp = null },
 ) {
-  const video = await downloadYoutubeVideo(sourceUrl, { maxBytes, cookie, usePoToken });
+  const video = await downloadYoutubeVideo(sourceUrl, { maxBytes, cookie, usePoToken, ytDlp });
   if (video !== null) {
     try {
       return await sendVideoBytes(bot, chatId, video.data, video.filename, caption, { parseMode });

@@ -18,6 +18,7 @@ import {
   sendPhoto,
   sendVideo,
   sendYoutubePost,
+  ytDlpOptions,
 } from "./publisher.js";
 import { isTelegramSendFailure } from "./telegram_errors.js";
 import { delayBetweenTelegramSends, sendWithRetries } from "./telegram_retry.js";
@@ -155,6 +156,7 @@ async function sendPartMessage(bot, config, chatId, part) {
       maxBytes: Math.max(1, config.youtube_video_max_mb) * 1024 * 1024,
       cookie: config.youtube_cookie,
       usePoToken: config.enable_youtube_po_token,
+      ytDlp: ytDlpOptions(config),
     });
     if (sent !== null && sent !== undefined) {
       return sentModerationPart(sent.message_id);
