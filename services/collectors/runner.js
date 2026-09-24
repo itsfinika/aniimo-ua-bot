@@ -394,6 +394,21 @@ export class BaseNewsCollector {
           additional_media_urls: candidate.has_media ? candidate.additional_media_urls : null,
         });
       }
+      // Marked seen as soon as the submission row exists, BEFORE the send.
+      // Doing it after meant that a send which failed halfway — the draft text
+      // already in the chat, the card not — left the item unseen, so the next
+      // tick drafted and posted it again, and again, every few seconds. The
+      // submission is already saved at this point and the admin can find it in
+      // the queue, so one failed send must not become an endless repost loop.
+      await this.db.markSourceSeen({
+        source_type: this.definition.source_type,
+        source_id: candidate.source_id,
+        source_url: sourceUrl,
+        title: candidate.title,
+        article_date: candidate.article_date,
+        outcome: "queued",
+      });
+
       // Space this send from the previous one so a tick with many new items
       // does not flood the moderation chat. No-op for the first/manual send.
       await this.throttle.wait();
@@ -411,14 +426,6 @@ export class BaseNewsCollector {
       return false;
     }
 
-    await this.db.markSourceSeen({
-      source_type: this.definition.source_type,
-      source_id: candidate.source_id,
-      source_url: sourceUrl,
-      title: candidate.title,
-      article_date: candidate.article_date,
-      outcome: "queued",
-    });
     logger.info(`Created moderation draft for ${this.definition.collector_id} article ${sourceUrl}`);
     return true;
   }
