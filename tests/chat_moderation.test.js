@@ -253,3 +253,44 @@ it("clamps mute durations into Telegram's window", () => {
   expect(cm.clampMuteSeconds(3600)).toBe(3600);
   expect(cm.clampMuteSeconds(cm.MAX_MUTE_SECONDS + 1)).toBe(cm.MAX_MUTE_SECONDS);
 });
+
+// --- Ukrainian and Russian spam ------------------------------------------------ //
+
+it("catches an earnings pitch written in Ukrainian or Russian", () => {
+  // Every pattern inherited from the Marvel bot was English, so the spam that
+  // actually reaches a Ukrainian chat walked straight through.
+  for (const text of [
+    "Заробіток без вкладень, деталі в особисті",
+    "ЗАРОБИТОК БЕЗ ВКЛАДЕНЬ пиши в лічку",
+    "Пасивний дохід від 500$ на день",
+    "Пассивный доход, без вложений",
+    "Гарантований прибуток на ставках",
+    "Схема заробітку на криптовалюті",
+  ]) {
+    expect(cm.suspiciousReason(text), text).toBe("scam");
+  }
+});
+
+it("treats a shortened link next to a money word as spam", () => {
+  // Hand-typed spam rarely carries a scheme, so the shortener is matched with
+  // or without "https://".
+  expect(cm.suspiciousReason("крипта тут bit.ly/aaa заходь")).toBe("shortener");
+  expect(cm.suspiciousReason("розіграш призів tinyurl.com/zzz")).toBe("shortener");
+  expect(cm.suspiciousReason("безкоштовні подарунки https://cutt.ly/qqq")).toBe("shortener");
+});
+
+it("leaves ordinary game talk alone", () => {
+  // The same words appear constantly in a healthy chat: the game has giveaways,
+  // free costumes, prizes and in-game earnings. None of them is spam by itself.
+  for (const text of [
+    "Де можна заробити Glimmer швидше?",
+    "Розіграш від розробників, деталі на офіційному сайті",
+    "Безкоштовний костюм дають за вхід до 30 вересня",
+    "Приз за івент уже видали?",
+    "прибуток з продажу ресурсів у грі норм",
+    "Гайд по білдах https://www.youtube.com/watch?v=xyz",
+    "Ось коротке посилання на гайд bit.ly/guide",
+  ]) {
+    expect(cm.suspiciousReason(text), text).toBeNull();
+  }
+});

@@ -163,6 +163,22 @@ const SCAM_PATTERNS = [
       `steamcommunlty|steamcommun[il]ty|steamcomunity|telegrann|telergam)${NOT_WORD_AFTER}`,
     "iu",
   ),
+  // The chat is Ukrainian, and so is the spam that reaches it: every pattern
+  // above is English and matched nothing real. These are phrasings a player
+  // never uses about the game, only an earnings pitch: «заробіток без
+  // вкладень», «пасивний дохід», «гарантований прибуток», «схема заробітку».
+  // Russian spellings are included because the spam arrives in both.
+  new RegExp(
+    `${NOT_WORD_BEFORE}(?:заробіт${WORD}*|заробит${WORD}*|заробот${WORD}*|заработ${WORD}*|дохід|доход|прибут${WORD}*)` +
+      `\\s+(?:без\\s+вкладен${WORD}*|без\\s+вложен${WORD}*)`,
+    "iu",
+  ),
+  new RegExp(`${NOT_WORD_BEFORE}(?:пасивн${WORD}*|пассивн${WORD}*)\\s+(?:дохід|доход)`, "iu"),
+  new RegExp(
+    `${NOT_WORD_BEFORE}гарантован${WORD}*\\s+(?:дохід|доход|прибут${WORD}*|заробіт${WORD}*|заработ${WORD}*)`,
+    "iu",
+  ),
+  new RegExp(`${NOT_WORD_BEFORE}схем${WORD}*\\s+(?:заробіт${WORD}*|заработ${WORD}*)`, "iu"),
   // IP-logger / grabber services are effectively always malicious.
   /https?:\/\/(?:grabify\.link|iplogger\.\w+|blasze\.\w+)\/\S+/i,
 ];
@@ -177,10 +193,19 @@ const LINKED_SCAM_PATTERNS = [
 const URL_HINT_RE = /https?:\/\/|www\.|t\.me\//i;
 
 // Generic URL shorteners: only treated as suspicious when combined with a scam
-// keyword, to avoid blocking legitimate shortened links.
-const SHORTENER_RE = /https?:\/\/(?:bit\.ly|tinyurl\.com|cutt\.ly|is\.gd|shorturl\.at|t\.co|rb\.gy)\/\S+/i;
+// keyword, to avoid blocking legitimate shortened links. The scheme is optional
+// because spam is typed by hand and almost never carries one ("заходь bit.ly/x").
+const SHORTENER_RE = /(?:https?:\/\/)?(?:bit\.ly|tinyurl\.com|cutt\.ly|is\.gd|shorturl\.at|t\.co|rb\.gy)\/\S+/i;
+// The Ukrainian and Russian halves matter as much as the English one: «крипта»,
+// «інвестиції», «в лічку» behind a shortened link is the shape local spam
+// takes. None of these blocks a message on its own — a shortener has to be
+// there too — so ordinary talk about a giveaway or a free costume is safe.
 const SCAM_KEYWORD_RE = new RegExp(
-  `${NOT_WORD_BEFORE}(?:nitro|free|gift|airdrop|giveaway|claim|reward|prize|crypto|wallet|premium)${NOT_WORD_AFTER}`,
+  `${NOT_WORD_BEFORE}(?:nitro|free|gift|airdrop|giveaway|claim|reward|prize|crypto|wallet|premium|` +
+    `заробіт${WORD}*|заробит${WORD}*|заробот${WORD}*|заработ${WORD}*|підробіт${WORD}*|подработ${WORD}*|дохід|доход|вкладен${WORD}*|вложен${WORD}*|` +
+    `крипт${WORD}*|біткоїн${WORD}*|биткоин${WORD}*|інвест${WORD}*|инвест${WORD}*|казино|ставк${WORD}*|букмекер${WORD}*|` +
+    `промокод${WORD}*|розіграш${WORD}*|розыгрыш${WORD}*|приз|подарунок|подарок|безкоштовн${WORD}*|бесплатн${WORD}*|` +
+    `лічку|личку)${NOT_WORD_AFTER}`,
   "iu",
 );
 
