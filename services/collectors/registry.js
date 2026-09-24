@@ -148,6 +148,34 @@ export function createAllCollectors({ config, db, bot }) {
 }
 
 /**
+ * Re-draft ONE article chosen by its public URL, whichever enabled source still
+ * lists it. Collectors are tried in registry order (the official site first), and
+ * a source that fails to answer is skipped rather than aborting the search.
+ *
+ * @returns {Promise<object|null>} the run's stats, or null when no enabled
+ *   source's listing carries that URL.
+ */
+export async function redraftByUrl({ config, db, bot, url }) {
+  for (const entry of COLLECTORS.values()) {
+    if (!entry.isEnabled(config)) {
+      continue;
+    }
+    const collector = new entry.factory({ config, db, bot });
+    let stats;
+    try {
+      stats = await collector.redraftUrl(url);
+    } catch (error) {
+      logger.exception(`Redraft-by-URL failed for ${entry.definition.collector_id}`, error);
+      continue;
+    }
+    if (stats !== null) {
+      return stats;
+    }
+  }
+  return null;
+}
+
+/**
  * Run one tick over every scheduled collector.
  *
  * `collectors` exists only as a test seam — production always leaves it unset and

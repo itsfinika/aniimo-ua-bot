@@ -18,8 +18,10 @@ import {
   formatCollectionReport,
   getCollectorDefinition,
   listCollectorDefinitions,
+  redraftByUrl,
 } from "../services/collectors/registry.js";
 import { runWikiAniimoOnce } from "../services/collectors/wiki_aniimo/collector.js";
+import { isSafeHttpUrl } from "../services/urlutils.js";
 import { runFanartDigestOnce } from "../services/digests/fanart.js";
 import { runGuidesDigestOnce } from "../services/digests/guides.js";
 import { formatAdminPreview } from "../services/formatter.js";
@@ -87,7 +89,12 @@ export function buildAdminComposer({
   config,
   db,
   bot,
-  registry = { create: createCollector, definition: getCollectorDefinition, list: listCollectorDefinitions },
+  registry = {
+    create: createCollector,
+    definition: getCollectorDefinition,
+    list: listCollectorDefinitions,
+    redraftUrl: redraftByUrl,
+  },
 }) {
   const composer = new Composer();
 
@@ -209,6 +216,34 @@ export function buildAdminComposer({
 
     if (ctx.chat.id !== config.admin_chat_id && chatType(ctx) !== "private") {
       await ctx.reply(t("admin.news_fetch.wrong_chat"));
+      return;
+    }
+
+    // With a link, redraft THAT article instead of offering the source buttons:
+    // the buttons can only reach a source's newest item, which is no use for
+    // re-running an old article through a fix.
+    const target = String(ctx.match ?? "").trim();
+    if (target) {
+      if (!isRedraftableUrl(target)) {
+        await ctx.reply(t("admin.redraft.bad_url"));
+        return;
+      }
+      await ctx.reply(t("admin.redraft.url_started"));
+      let stats;
+      try {
+        stats = await registry.redraftUrl({ config, db, bot, url: target });
+      } catch (error) {
+        logger.exception("Redraft by URL failed", error);
+        await ctx.reply(t("admin.redraft.url_failed"));
+        return;
+      }
+      if (stats === null) {
+        await ctx.reply(t("admin.redraft.url_not_found"));
+        return;
+      }
+      await ctx.reply(`${formatCollectionReport(stats)}\n\n${t("admin.redraft.notice")}`, {
+        link_preview_options: DISABLED_LINK_PREVIEW,
+      });
       return;
     }
 
@@ -1479,4 +1514,14 @@ function containsLink(text) {
 
 function callbackChatType(ctx) {
   return ctx.callbackQuery.message?.chat?.type ?? null;
+}
+
+/**
+ * Whether `/redraft <argument>` is a link rather than a stray word.
+ *
+ * Only the shape is checked here; whether any source actually lists the article
+ * is answered by the search itself, which reports "not found" on its own.
+ */
+function isRedraftableUrl(value) {
+  return isSafeHttpUrl(String(value ?? "").trim());
 }

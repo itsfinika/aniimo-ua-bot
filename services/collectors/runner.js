@@ -21,6 +21,7 @@ import { dropDuplicateImages } from "../media_parser.js";
 import { sendSubmissionToModeration } from "../moderation.js";
 import { compareCalendarDates, dateFromIsoFormat, errorText, fromIsoFormat, hasIsoOffset } from "../pyutils.js";
 import { collectPublishableLinks } from "../source_links.js";
+import { urlsplit } from "../urlutils.js";
 import { CollectionMode, emptyStats } from "./base.js";
 import { SubmissionThrottle } from "./throttle.js";
 
@@ -214,6 +215,41 @@ export class BaseNewsCollector {
     const candidate = await this.parseEntry(entry);
     stats.new += 1;
     return candidate;
+  }
+
+  /**
+   * Re-draft ONE specific article, chosen by its public URL.
+   *
+   * `/redraft` on its own can only reach a source's newest item, which is no
+   * help when a fix has to be applied to something published weeks ago — the
+   * case this exists for. Dedup is skipped for the same reason FORCE_LATEST
+   * skips it: the article being already seen is the whole point.
+   *
+   * @returns {Promise<object|null>} null when this source's listing does not
+   *   carry that URL, so the caller can try the next collector.
+   */
+  async redraftUrl(url) {
+    const entries = await this.fetchListing();
+    const entry = entries.find((candidate) => entryMatchesUrl(candidate, url)) ?? null;
+    if (entry === null) {
+      return null;
+    }
+
+    const stats = emptyStats(this.definition);
+    stats.found = entries.length;
+    stats.duplicates = Math.max(0, entries.length - 1);
+
+    if (!this.config.gemini_api_key) {
+      logger.warning(`GEMINI_API_KEY is missing. Cannot redraft ${url}.`);
+      stats.errors.push(this.missingGeminiWarning());
+      return stats;
+    }
+
+    const generator = new GeminiDraftGenerator(this.config.gemini_api_key, this.config.gemini_model);
+    const candidate = await this.parseEntry(entry);
+    stats.new += 1;
+    await this.createModerationSubmissions(candidate, generator, stats);
+    return stats;
   }
 
   async findLatestUnseenCandidate(entries, stats, generator) {
@@ -444,6 +480,59 @@ function partMessageType(candidate) {
     return "text";
   }
   return candidate.media_type === "video" ? "video" : "photo";
+}
+
+/**
+ * Whether a listing entry is the article behind `url`.
+ *
+ * Sources key their entries differently: the official site's dedup key IS the
+ * canonical URL, while Steam, YouTube, Reddit and Aniimo Tools key by an opaque
+ * post id that appears inside the article's own link. Both are matched, and an
+ * id only counts as a whole path segment or query value so that "1" cannot
+ * match "/detail/100111".
+ */
+export function entryMatchesUrl(entry, url) {
+  const key = String(entry?.dedup_key ?? "").trim();
+  const target = String(url ?? "").trim();
+  if (!key || !target) {
+    return false;
+  }
+
+  if (key.includes("://")) {
+    return normalizeMatchUrl(key) === normalizeMatchUrl(target);
+  }
+
+  return urlCarriesId(target, key);
+}
+
+/** Compare URLs without the noise: no scheme, no "www.", no trailing slash, no fragment. */
+function normalizeMatchUrl(value) {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/#.*$/, "")
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/+$/, "");
+}
+
+function urlCarriesId(url, id) {
+  const parsed = urlsplit(url);
+  if (!parsed.netloc) {
+    return false;
+  }
+  const lowered = id.toLowerCase();
+  const segments = parsed.path.split("/").filter(Boolean).map((part) => part.toLowerCase());
+  if (segments.includes(lowered)) {
+    return true;
+  }
+  const query = new URLSearchParams(parsed.query ?? "");
+  for (const value of query.values()) {
+    if (value.toLowerCase() === lowered) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

@@ -14,7 +14,7 @@ import { expect, it } from "vitest";
 
 import { buildAdminComposer } from "../handlers/admin.js";
 import { CollectionMode, listingEntry } from "../services/collectors/base.js";
-import { BaseNewsCollector } from "../services/collectors/runner.js";
+import { BaseNewsCollector, entryMatchesUrl } from "../services/collectors/runner.js";
 import { RedraftCallback, redraftSourceKeyboard, unpackRedraftCallback } from "../keyboards.js";
 import { dispatch, fakeBot, messageUpdate, sentTexts } from "./helpers/telegram.js";
 
@@ -250,3 +250,112 @@ function callbackUpdate(data) {
     },
   };
 }
+
+// --- /redraft <link>: re-draft ONE named article, not just the newest ------------
+//
+// The buttons can only reach a source's newest item, which is no help when a fix
+// has to be re-applied to something published weeks ago.
+
+it("re-drafts the article named by its URL, not the newest one", async () => {
+  const { collector, drafted } = buildCollector();
+
+  const stats = await collector.redraftUrl("https://x/a2");
+
+  expect(drafted.map((candidate) => candidate.title)).toEqual(["Older article"]);
+  expect(stats.new).toBe(1);
+  expect(stats.sent_to_moderation).toBe(1);
+});
+
+it("returns null for a URL this source does not list, so the next one is tried", async () => {
+  const { collector, drafted } = buildCollector();
+
+  expect(await collector.redraftUrl("https://x/nope")).toBeNull();
+  expect(drafted).toEqual([]);
+});
+
+it("re-drafts exactly one article, never the rest of the listing", async () => {
+  const { collector, drafted } = buildCollector();
+
+  await collector.redraftUrl("https://x/a1");
+
+  expect(drafted).toHaveLength(1);
+});
+
+it("reports the missing Gemini key instead of drafting", async () => {
+  const { collector, drafted } = buildCollector();
+  collector.config = { ...collector.config, gemini_api_key: "" };
+
+  const stats = await collector.redraftUrl("https://x/a2");
+
+  expect(drafted).toEqual([]);
+  expect(stats.errors).toEqual(["no key"]);
+});
+
+it("matches a listing entry keyed by URL and one keyed by an opaque id", () => {
+  // The official site keys entries by the canonical URL itself.
+  const byUrl = listingEntry("https://www.aniimo.com/newslist/detail/100111");
+  expect(entryMatchesUrl(byUrl, "https://www.aniimo.com/newslist/detail/100111")).toBe(true);
+  // Scheme, "www." and a trailing slash are noise, not a different article.
+  expect(entryMatchesUrl(byUrl, "http://aniimo.com/newslist/detail/100111/")).toBe(true);
+  expect(entryMatchesUrl(byUrl, "https://www.aniimo.com/newslist/detail/100147")).toBe(false);
+
+  // Steam/YouTube/Reddit key by an id that appears inside the article's link.
+  const byId = listingEntry("dQw4w9WgXcQ");
+  expect(entryMatchesUrl(byId, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(true);
+  expect(entryMatchesUrl(byId, "https://youtu.be/dQw4w9WgXcQ")).toBe(true);
+  expect(entryMatchesUrl(byId, "https://youtu.be/somethingelse")).toBe(false);
+
+  // A short id must not match as a substring of a longer one.
+  expect(entryMatchesUrl(listingEntry("1"), "https://www.aniimo.com/newslist/detail/100111")).toBe(false);
+  expect(entryMatchesUrl(listingEntry(""), "https://x/a")).toBe(false);
+});
+
+it("passes a /redraft link to the registry instead of showing the source picker", async () => {
+  const bot = fakeBot();
+  const seen = [];
+  const composer = buildAdminComposer({
+    config: adminConfig(),
+    db: {},
+    bot,
+    registry: {
+      list: () => [],
+      redraftUrl: async ({ url }) => {
+        seen.push(url);
+        return { source_title: "Офіційний сайт", found: 20, duplicates: 19, new: 1, drafts_created: 1, sent_to_moderation: 1, failed: 0, errors: [] };
+      },
+    },
+  });
+
+  await dispatch(
+    composer,
+    messageUpdate({
+      text: "/redraft https://www.aniimo.com/newslist/detail/100111",
+      userId: 7,
+      chatId: -4242,
+      chatType: "supergroup",
+    }),
+    bot,
+  );
+
+  expect(seen).toEqual(["https://www.aniimo.com/newslist/detail/100111"]);
+  expect(sentTexts(bot).some((text) => text.includes("повторної чернетки"))).toBe(false);
+});
+
+it("says so when no source lists that link, and rejects a non-link argument", async () => {
+  const bot = fakeBot();
+  const composer = buildAdminComposer({
+    config: adminConfig(),
+    db: {},
+    bot,
+    registry: { list: () => [], redraftUrl: async () => null },
+  });
+  const send = (text) =>
+    dispatch(composer, messageUpdate({ text, userId: 7, chatId: -4242, chatType: "supergroup" }), bot);
+
+  await send("/redraft https://www.aniimo.com/newslist/detail/999999");
+  expect(sentTexts(bot).some((text) => text.includes("Не знайшла цю статтю"))).toBe(true);
+
+  bot.calls.length = 0;
+  await send("/redraft останню");
+  expect(sentTexts(bot).some((text) => text.includes("треба дати посилання"))).toBe(true);
+});
