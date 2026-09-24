@@ -72,7 +72,29 @@ const OFFICIAL_TOPIC_TAG_RULES = [
   [["creature", "legendary", "evolution", "evolve", "hatch", "egg", "bond pact", "sparkling", "prismana"], "#Аніімо"],
   [["character", "companion", "npc", "story", "quest", "legendary journey", "chapter"], "#Сюжет"],
   [["region", "map", "habitat", "area", "zone"], "#Локації"],
-  [["mode", "gameplay", "co-op", "coop", "multiplayer", "pvp", "raid", "housing", "farm"], "#Геймплей"],
+  // Anti-cheat and account-rules posts, which read nothing like a feature
+  // announcement. This rule sits above the gameplay one on purpose: their lead
+  // paragraph always promises "a great gameplay experience", which used to tag
+  // a ban-policy notice «#Геймплей».
+  [
+    [
+      "fair play",
+      "prohibited activit",
+      "cheat",
+      "cheating",
+      "exploit",
+      "botting",
+      "multiboxing",
+      "third-party software",
+      "account trading",
+      "account sharing",
+      "violation",
+    ],
+    "#ЧеснаГра",
+  ],
+  // "gameplay" deliberately absent: it is boilerplate in the opening lines of
+  // almost every official post, and the body is scanned only there.
+  [["mode", "co-op", "coop", "multiplayer", "pvp", "raid", "housing", "farm"], "#Геймплей"],
   [["season", "version 1.", "new version", "roadmap"], "#Версія"],
   [["maintenance", "server", "downtime", "offline", "compensation"], "#ТехнічніРоботи"],
   [["ranked", "competitive", "rank", "league"], "#Рейтинг"],

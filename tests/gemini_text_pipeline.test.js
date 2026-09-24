@@ -50,7 +50,7 @@ it.each([
   ["100111", "#Подія #Бета"], // IMPORTANT NOTICE: How to Claim Your Beta Test Rewards
   ["100100", "#Виправлення"], // Intel CPU Stability Issues and Solutions
   ["100089", "#Платформи"], // Aniimo PC & Console Pre-Download Now Available! Launching on September 16!
-  ["100067", "#Анонс"], // Aniimo Fair Play Announcement
+  ["100067", "#ЧеснаГра"], // Aniimo Fair Play Announcement
   ["100064", "#Анонс"], // A Letter from the Aniimo Dev Team
   ["100051", "#МобільнаВерсія #Платформи"], // Aniimo Global Launch Dates: Coming to PC & Consoles…, Mobile…
   ["100062", "#Анонс"], // A New Way to Connect with Your Aniimo (no topic word, empty excerpt)
