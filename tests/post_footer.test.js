@@ -49,7 +49,7 @@ it("appends the footer as one line of links", () => {
 it("carries no rule and no heading above the links", () => {
   const html = formatPostHtml("Свіжа новина.", { include_community_footer: true });
 
-  expect(FOOTER_TEXT).toBe("💬 Чат | 🤖 Запропонувати новину");
+  expect(FOOTER_TEXT).toBe("💬 Чат | 📩 Запропонувати новину");
   expect(html).not.toContain("─");
   expect(html).not.toContain("Навігація");
   // Body, one blank line, links — nothing between them.
@@ -192,5 +192,5 @@ it("parks a community link by blanking its url, keeping the copy for later", asy
   expect(discord.url).toBe("");
   // Parked means gone from the line, not shown without a link.
   expect(FOOTER_TEXT).not.toContain("Discord");
-  expect(FOOTER_TEXT).toBe("💬 Чат | 🤖 Запропонувати новину");
+  expect(FOOTER_TEXT).toBe("💬 Чат | 📩 Запропонувати новину");
 });

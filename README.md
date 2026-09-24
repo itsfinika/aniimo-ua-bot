@@ -527,7 +527,7 @@ The community navigation footer is always added to every published post — offi
 ```text
 #Aniimo #Оновлення
 
-💬 Чат | 🤖 Запропонувати новину
+💬 Чат | 📩 Запропонувати новину
 ```
 
 It is one line of links and nothing more. A horizontal rule and a "Навігація по ком'юніті" heading used to sit above it; under a short post they took up more room than the post itself, so both were dropped.
