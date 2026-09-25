@@ -48,6 +48,13 @@ export class BaseNewsCollector {
   // remain visible for other sources to dedup against.
   static participates_in_cross_source_dedup = true;
 
+  // Whether this source may recognise a duplicate of its OWN earlier titles.
+  // False everywhere by default, because a news feed publishes each story once
+  // and self-dedup could only suppress genuinely new articles. The Reddit topic
+  // watch sets it: several players describing the same thing on the same day is
+  // the normal case there, not a mistake.
+  static dedups_within_source = false;
+
   constructor({ config, db, bot }) {
     this.config = config;
     this.db = db;
@@ -58,6 +65,7 @@ export class BaseNewsCollector {
     // Copied onto the instance (rather than read through the class) so a single
     // collector can opt out at runtime, exactly as the Python attribute allowed.
     this.participatesInCrossSourceDedup = this.constructor.participates_in_cross_source_dedup;
+    this.dedupsWithinSource = this.constructor.dedups_within_source;
   }
 
   get definition() {
@@ -319,12 +327,14 @@ export class BaseNewsCollector {
       return false;
     }
 
-    // Compare only against OTHER sources: a source never dedups against its own
-    // titles, so with a single source configured this is a safe no-op and cannot
-    // suppress genuinely-new articles from that same source.
+    // Compare only against OTHER sources: a source normally never dedups against
+    // its own titles, so with a single source configured this is a safe no-op and
+    // cannot suppress genuinely-new articles from that same source. A source that
+    // opts into `dedups_within_source` is compared against everything, its own
+    // history included.
     const existingTitles = await this.db.getRecentSeenTitles({
       limit,
-      exclude_source_type: this.definition.source_type,
+      exclude_source_type: this.dedupsWithinSource ? null : this.definition.source_type,
     });
     if (!existingTitles.length) {
       return false;

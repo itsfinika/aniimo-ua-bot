@@ -11,6 +11,7 @@ import { DEFINITION as ANIIMOTOOLS_DEFINITION, AniimoToolsCollector } from "./an
 import { DEFINITION as BLUESKY_DEFINITION, BlueskyCollector } from "./bluesky/collector.js";
 import { DEFINITION as OFFICIAL_ANIIMO_DEFINITION, OfficialAniimoCollector } from "./official_aniimo/collector.js";
 import { DEFINITION as REDDIT_DEFINITION, RedditLeaksCollector } from "./reddit/collector.js";
+import { DEFINITION as REDDIT_WATCH_DEFINITION, RedditWatchCollector } from "./reddit_watch/collector.js";
 import { DEFINITION as STEAM_DEFINITION, SteamNewsCollector } from "./steam/collector.js";
 import { SubmissionThrottle } from "./throttle.js";
 import { DEFINITION as WIKI_ANIIMO_DEFINITION, WikiAniimoCollector } from "./wiki_aniimo/collector.js";
@@ -94,6 +95,15 @@ const COLLECTORS = new Map([
       definition: REDDIT_DEFINITION,
       factory: RedditLeaksCollector,
       isEnabled: (config) => config.enable_reddit_source,
+      scheduled: true,
+    },
+  ],
+  [
+    REDDIT_WATCH_DEFINITION.collector_id,
+    {
+      definition: REDDIT_WATCH_DEFINITION,
+      factory: RedditWatchCollector,
+      isEnabled: (config) => config.enable_reddit_watch && config.reddit_watch_queries.length > 0,
       scheduled: true,
     },
   ],

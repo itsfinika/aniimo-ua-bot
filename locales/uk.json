@@ -136,7 +136,8 @@
     "collector_wiki_aniimo": "Аніімо тижня (вікі)",
     "modlog_delete": "🗑 Видалити",
     "modlog_mute": "🔇 Мут 1 год",
-    "modlog_ban": "⛔ Бан"
+    "modlog_ban": "⛔ Бан",
+    "collector_reddit_watch": "Reddit (спільнота)"
   },
   "formatter": {
     "none": "немає",
@@ -281,6 +282,14 @@
       "tag": "аніімотижня",
       "errors": {
         "missing_gemini_api_key": "GEMINI_API_KEY відсутній. Рубрика «Аніімо тижня» пропускає AI-генерацію чернеток."
+      }
+    },
+    "reddit_watch": {
+      "title": "Reddit (спільнота Aniimo)",
+      "source_name": "Reddit (спільнота Aniimo)",
+      "username": "reddit_watch_collector",
+      "errors": {
+        "missing_gemini_api_key": "GEMINI_API_KEY відсутній. Спостереження за Reddit пропускає AI-генерацію чернеток."
       }
     }
   },

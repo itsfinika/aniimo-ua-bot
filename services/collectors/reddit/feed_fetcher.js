@@ -48,9 +48,17 @@ function isRedditImageUrl(url, allowedHosts) {
  * fan-art digest uses sort=top + time_filter=week).
  */
 export class RedditSearchFetcher {
-  constructor(subreddit, flairs, { sort = "new", time_filter = null, limit = DEFAULT_LIMIT } = {}) {
+  /**
+   * `query` searches the subreddit for a phrase instead of filtering by flair,
+   * which is what a topic watch needs: the interesting posts about, say, the
+   * Mysterious Vendor carry whatever flair their author happened to pick. When
+   * it is set the flairs are ignored; the two are alternative ways to build the
+   * same `q` parameter.
+   */
+  constructor(subreddit, flairs, { sort = "new", time_filter = null, limit = DEFAULT_LIMIT, query = "" } = {}) {
     this.subreddit = subreddit;
     this.flairs = [...flairs];
+    this.query = String(query ?? "").trim();
     this.sort = sort;
     this.time_filter = time_filter;
     this.limit = limit;
@@ -73,14 +81,14 @@ export class RedditSearchFetcher {
   }
 
   async fetchFeed() {
-    if (!this.flairs.length) {
-      logger.warning(`No Reddit flairs configured for r/${this.subreddit}; skipping`);
+    if (!this.query && !this.flairs.length) {
+      logger.warning(`No Reddit query or flairs configured for r/${this.subreddit}; skipping`);
       return null;
     }
 
     const url = SEARCH_URL_TEMPLATE.replace("{subreddit}", quoteAll(this.subreddit));
     const params = new URLSearchParams({
-      q: buildFlairQuery(this.flairs),
+      q: this.query || buildFlairQuery(this.flairs),
       restrict_sr: "on",
       sort: this.sort,
       limit: String(this.limit),

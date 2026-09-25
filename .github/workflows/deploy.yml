@@ -185,6 +185,10 @@ jobs:
           ENABLE_YTDLP_DOWNLOAD: ${{ secrets.ENABLE_YTDLP_DOWNLOAD }}
           YOUTUBE_COOKIE: ${{ secrets.YOUTUBE_COOKIE }}
           ENABLE_REDDIT_SOURCE: ${{ secrets.ENABLE_REDDIT_SOURCE }}
+          ENABLE_REDDIT_WATCH: ${{ secrets.ENABLE_REDDIT_WATCH }}
+          REDDIT_WATCH_SUBREDDIT: ${{ secrets.REDDIT_WATCH_SUBREDDIT }}
+          REDDIT_WATCH_QUERIES: ${{ secrets.REDDIT_WATCH_QUERIES }}
+          REDDIT_WATCH_TITLE_ONLY: ${{ secrets.REDDIT_WATCH_TITLE_ONLY }}
           REDDIT_SUBREDDIT: ${{ secrets.REDDIT_SUBREDDIT }}
           REDDIT_FLAIRS: ${{ secrets.REDDIT_FLAIRS }}
           REDDIT_EXCLUDE_KEYWORDS: ${{ secrets.REDDIT_EXCLUDE_KEYWORDS }}
@@ -294,6 +298,10 @@ jobs:
             printf 'export ENABLE_YTDLP_DOWNLOAD=%q\n'          "$ENABLE_YTDLP_DOWNLOAD";
             printf 'export YOUTUBE_COOKIE=%q\n'                   "$YOUTUBE_COOKIE";
             printf 'export ENABLE_REDDIT_SOURCE=%q\n'             "$ENABLE_REDDIT_SOURCE";
+            printf 'export ENABLE_REDDIT_WATCH=%q\n'             "$ENABLE_REDDIT_WATCH";
+            printf 'export REDDIT_WATCH_SUBREDDIT=%q\n'             "$REDDIT_WATCH_SUBREDDIT";
+            printf 'export REDDIT_WATCH_QUERIES=%q\n'             "$REDDIT_WATCH_QUERIES";
+            printf 'export REDDIT_WATCH_TITLE_ONLY=%q\n'             "$REDDIT_WATCH_TITLE_ONLY";
             printf 'export REDDIT_SUBREDDIT=%q\n'                 "$REDDIT_SUBREDDIT";
             printf 'export REDDIT_FLAIRS=%q\n'                    "$REDDIT_FLAIRS";
             printf 'export REDDIT_EXCLUDE_KEYWORDS=%q\n'          "$REDDIT_EXCLUDE_KEYWORDS";

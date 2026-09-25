@@ -47,6 +47,10 @@ export const DEFAULT_OFFICIAL_NEWS_API_URL = "https://worldx-office-api.aniimo.c
 export const DEFAULT_OFFICIAL_NEWS_REGION = "en";
 // Both binaries are expected on PATH inside the container image.
 export const DEFAULT_YTDLP_PATH = "yt-dlp";
+// The Reddit topic watch. r/Aniimo is the ONLY place the Mysterious Vendor's
+// daily shelf ever appears, so that is the phrase it looks for out of the box.
+export const DEFAULT_REDDIT_WATCH_SUBREDDIT = "Aniimo";
+export const DEFAULT_REDDIT_WATCH_QUERIES = ["mysterious vendor"];
 
 // Steam's own "Community Announcements" feed for the app: every item is an
 // official post, so it counts as an official source alongside the site.
@@ -184,6 +188,16 @@ export function loadConfig(env = process.env) {
   // On by default because the container ships it, and harmless where it is
   // missing: the downloader probes once and falls back.
   const enableYtdlpDownload = optionalBool(env, "ENABLE_YTDLP_DOWNLOAD", true);
+
+  const enableRedditWatch = optionalBool(env, "ENABLE_REDDIT_WATCH", false);
+  const redditWatchSubreddit =
+    (env.REDDIT_WATCH_SUBREDDIT ?? DEFAULT_REDDIT_WATCH_SUBREDDIT).trim() || DEFAULT_REDDIT_WATCH_SUBREDDIT;
+  // Comma-separated phrases, one Reddit search each. Keep the list short: every
+  // phrase costs a request per tick and Reddit rate-limits hard.
+  const redditWatchQueries = parseFlairs(env, "REDDIT_WATCH_QUERIES", DEFAULT_REDDIT_WATCH_QUERIES);
+  // Require the phrase in the post TITLE. Reddit's search also matches bodies,
+  // which drags in every thread that mentions the subject in passing.
+  const redditWatchTitleOnly = optionalBool(env, "REDDIT_WATCH_TITLE_ONLY", true);
   const ytdlpPath = (env.YTDLP_PATH ?? DEFAULT_YTDLP_PATH).trim() || DEFAULT_YTDLP_PATH;
   // Empty means "let yt-dlp find ffmpeg on PATH", which is the container case.
   const ffmpegPath = (env.FFMPEG_PATH ?? "").trim();
@@ -283,6 +297,10 @@ export function loadConfig(env = process.env) {
     youtube_video_max_mb: youtubeVideoMaxMb,
     enable_youtube_po_token: enableYoutubePoToken,
     youtube_cookie: youtubeCookie,
+    enable_reddit_watch: enableRedditWatch,
+    reddit_watch_subreddit: redditWatchSubreddit,
+    reddit_watch_queries: redditWatchQueries,
+    reddit_watch_title_only: redditWatchTitleOnly,
     enable_ytdlp_download: enableYtdlpDownload,
     ytdlp_path: ytdlpPath,
     ffmpeg_path: ffmpegPath,

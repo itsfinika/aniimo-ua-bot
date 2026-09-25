@@ -124,7 +124,16 @@ it("lists every collector without a config, in registry order", () => {
   // Order matters for cross-source dedup: the official site runs before Steam
   // (which repeats its announcements), so the site's copy wins ties.
   const ids = listCollectorDefinitions(null).map((definition) => definition.collector_id);
-  expect(ids).toEqual(["official_aniimo", "steam", "bluesky", "youtube", "reddit", "aniimotools", "wiki_aniimo"]);
+  expect(ids).toEqual([
+    "official_aniimo",
+    "steam",
+    "bluesky",
+    "youtube",
+    "reddit",
+    "reddit_watch",
+    "aniimotools",
+    "wiki_aniimo",
+  ]);
 });
 
 it("gates createCollector for Bluesky", () => {

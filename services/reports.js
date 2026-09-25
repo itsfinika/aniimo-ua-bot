@@ -65,6 +65,7 @@ function isSourceEnabled(definition, config) {
     bluesky: config.enable_bluesky_source && Boolean(String(config.bluesky_actor ?? "").trim()),
     youtube: config.enable_youtube_source,
     reddit: config.enable_reddit_source,
+    reddit_watch: config.enable_reddit_watch && config.reddit_watch_queries.length > 0,
     aniimotools: config.enable_aniimotools_source,
     wiki_aniimo: config.enable_wiki_aniimo,
   };
