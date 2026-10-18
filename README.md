@@ -593,8 +593,9 @@ The moderation chat now keeps the publishable post content separate from the con
 - After `✏️ Edit`, the bot shows buttons for every part, even when there is only one part.
 - Choosing a part copies that original message into a temporary draft message with `💾 Зберегти`.
 - After the admin edits the draft message and clicks save, the draft is deleted and the original part message above is updated.
-- In groups where admins cannot directly edit bot messages, sending a new text message while the draft is active updates the draft message; the admin still confirms with `💾 Зберегти`.
-- `➕ Нова частина` starts add-part mode. The next supported admin message is copied into the moderation chat as a new post part, and the metadata/control message is moved to the bottom again.
+- In the moderation group, where admins cannot directly edit bot messages, sending a new text message while the draft is active updates the draft message; the admin still confirms with `💾 Зберегти`.
+- `➕ Нова частина` starts add-part mode. The next supported admin message in the moderation chat becomes a new post part, and the metadata/control message is moved to the bottom again.
+- Private messages to the bot create new submissions even while an edit is open in the moderation chat. Private `/start` shows the normal welcome; `/cancel` can still cancel an open edit.
 - Approval publishes all saved parts in order.
 
 ## Discord Moderation (Optional)

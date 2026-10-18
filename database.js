@@ -877,25 +877,25 @@ export class Database {
 
   async markPublished(submissionId) {
     const now = utcNowIso();
-    await this.#execute(
-      `
-      UPDATE submissions
-      SET status = ?, updated_at = ?, published_at = ?
-      WHERE id = ?
-      `,
-      [STATUS_PUBLISHED, now, now, submissionId],
-    );
+    await this.#transaction((db) => {
+      db.prepare(`
+        UPDATE submissions
+        SET status = ?, updated_at = ?, published_at = ?
+        WHERE id = ?
+      `).run(STATUS_PUBLISHED, now, now, submissionId);
+      db.prepare("DELETE FROM admin_edit_states WHERE submission_id = ?").run(submissionId);
+    });
   }
 
   async markRejected(submissionId) {
-    await this.#execute(
-      `
-      UPDATE submissions
-      SET status = ?, updated_at = ?
-      WHERE id = ?
-      `,
-      [STATUS_REJECTED, utcNowIso(), submissionId],
-    );
+    await this.#transaction((db) => {
+      db.prepare(`
+        UPDATE submissions
+        SET status = ?, updated_at = ?
+        WHERE id = ?
+      `).run(STATUS_REJECTED, utcNowIso(), submissionId);
+      db.prepare("DELETE FROM admin_edit_states WHERE submission_id = ?").run(submissionId);
+    });
   }
 
   async setAdminEditState(adminId, submissionId, { mode = "edit", part_index = null, draft_message_id = null } = {}) {

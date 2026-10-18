@@ -78,6 +78,19 @@ async function withApproveLock(submissionId, work) {
 }
 
 const editPromptMessageIds = new Map();
+
+async function activeAdminEditState(db, state, adminId = state?.admin_id) {
+  if (state === null) return null;
+
+  const submission = await db.getSubmission(Number(state.submission_id));
+  if (submission?.status !== STATUS_PENDING) {
+    await db.clearAdminEditState(adminId);
+    logger.info(`Cleared inactive edit state for admin ${adminId}, submission ${state.submission_id}`);
+    return null;
+  }
+
+  return state;
+}
 const URL_PATTERN = /https?:\/\/|www\./i;
 
 /**
@@ -110,24 +123,19 @@ export function buildAdminComposer({
   const adminOrPrivateChat = (ctx) => ctx.chat?.id === config.admin_chat_id || chatType(ctx) === "private";
   const adminCommandChat = (ctx) => isAdminUser(ctx.from?.id) && adminOrPrivateChat(ctx);
 
-  const adminEditMessage = async (ctx) => {
-    if (!isAdminUser(ctx.from?.id)) return false;
-    if (ctx.chat?.id !== config.admin_chat_id && chatType(ctx) !== "private") return false;
-    const state = await db.getAdminEditState(ctx.from.id);
-    return state !== null && state.mode === "add_part";
+  const adminMessageEditState = async (ctx, mode = null) => {
+    if (!isAdminUser(ctx.from?.id)) return null;
+    // Drafts and add-part prompts live in the moderation chat. A new DM is a
+    // submission even when its author still has a fresh edit open there.
+    if (ctx.chat?.id !== config.admin_chat_id || chatType(ctx) === "private") return null;
+    const state = await activeAdminEditState(db, await db.getAdminEditState(ctx.from.id), ctx.from.id);
+    return state !== null && (mode === null || state.mode === mode) ? state : null;
   };
 
-  const adminChannelEditPost = async (ctx) => {
-    if (ctx.chat?.id !== config.admin_chat_id || chatType(ctx) !== "channel") return false;
-    const state = await db.getLatestAdminEditState();
-    return state !== null && state.mode === "add_part";
-  };
-
-  const adminDraftMessage = async (ctx) => {
-    if (!isAdminUser(ctx.from?.id)) return false;
-    if (ctx.chat?.id !== config.admin_chat_id && chatType(ctx) !== "private") return false;
-    const state = await db.getAdminEditState(ctx.from.id);
-    return state !== null && state.mode === "draft_part";
+  const adminChannelEditState = async (ctx) => {
+    if (ctx.chat?.id !== config.admin_chat_id || chatType(ctx) !== "channel") return null;
+    const state = await activeAdminEditState(db, await db.getLatestAdminEditState());
+    return state?.mode === "add_part" ? state : null;
   };
 
   // --- callback queries ------------------------------------------------------
@@ -554,20 +562,18 @@ ${t("admin.redraft.notice")}`
     await ctx.reply(t("admin.edit.cancelled"));
   });
 
-  // --- add-part capture (admin chat / DM) ------------------------------------
+  // --- edit commands and add-part capture (admin chat) -----------------------
 
   composer.command("start", async (ctx, next) => {
-    if (!(await adminEditMessage(ctx))) return next();
-    const state = await db.getAdminEditState(ctx.from.id);
-    if (state === null) {
-      return;
-    }
+    const state = await adminMessageEditState(ctx);
+    if (state === null) return next();
 
     await ctx.reply(t("admin.edit.active_reminder", { submission_id: state.submission_id }));
   });
 
   composer.on("message:photo", async (ctx, next) => {
-    if (!(await adminEditMessage(ctx))) return next();
+    const state = await adminMessageEditState(ctx, "add_part");
+    if (state === null) return next();
     const photos = ctx.message.photo;
     const photo = photos?.length ? photos[photos.length - 1] : null;
     if (photo === null) {
@@ -576,6 +582,7 @@ ${t("admin.redraft.notice")}`
 
     await receiveAdminPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -586,13 +593,15 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("message:video", async (ctx, next) => {
-    if (!(await adminEditMessage(ctx))) return next();
+    const state = await adminMessageEditState(ctx, "add_part");
+    if (state === null) return next();
     if (!ctx.message.video) {
       return;
     }
 
     await receiveAdminPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -603,13 +612,15 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("message:document", async (ctx, next) => {
-    if (!(await adminEditMessage(ctx))) return next();
+    const state = await adminMessageEditState(ctx, "add_part");
+    if (state === null) return next();
     if (!ctx.message.document) {
       return;
     }
 
     await receiveAdminPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -620,9 +631,11 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("message:text", async (ctx, next) => {
-    if (!(await adminEditMessage(ctx))) return next();
+    const state = await adminMessageEditState(ctx, "add_part");
+    if (state === null) return next();
     await receiveAdminPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -635,7 +648,8 @@ ${t("admin.redraft.notice")}`
   // --- add-part capture (admin channel posts) --------------------------------
 
   composer.on("channel_post:photo", async (ctx, next) => {
-    if (!(await adminChannelEditPost(ctx))) return next();
+    const state = await adminChannelEditState(ctx);
+    if (state === null) return next();
     const photos = ctx.channelPost.photo;
     const photo = photos?.length ? photos[photos.length - 1] : null;
     if (photo === null) {
@@ -644,6 +658,7 @@ ${t("admin.redraft.notice")}`
 
     await receiveChannelPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -654,13 +669,15 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("channel_post:video", async (ctx, next) => {
-    if (!(await adminChannelEditPost(ctx))) return next();
+    const state = await adminChannelEditState(ctx);
+    if (state === null) return next();
     if (!ctx.channelPost.video) {
       return;
     }
 
     await receiveChannelPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -671,13 +688,15 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("channel_post:document", async (ctx, next) => {
-    if (!(await adminChannelEditPost(ctx))) return next();
+    const state = await adminChannelEditState(ctx);
+    if (state === null) return next();
     if (!ctx.channelPost.document) {
       return;
     }
 
     await receiveChannelPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -688,13 +707,15 @@ ${t("admin.redraft.notice")}`
   });
 
   composer.on("channel_post:text", async (ctx, next) => {
-    if (!(await adminChannelEditPost(ctx))) return next();
+    const state = await adminChannelEditState(ctx);
+    if (state === null) return next();
     if (isChannelPrompt(ctx.channelPost.text)) {
       return;
     }
 
     await receiveChannelPartMessage({
       ctx,
+      state,
       bot,
       config,
       db,
@@ -707,18 +728,15 @@ ${t("admin.redraft.notice")}`
   // --- live draft editing ----------------------------------------------------
 
   composer.on("message", async (ctx, next) => {
-    if (!(await adminDraftMessage(ctx))) return next();
-    const state = await db.getAdminEditState(ctx.from.id);
-    if (state === null) {
-      return;
-    }
+    const state = await adminMessageEditState(ctx, "draft_part");
+    if (state === null) return next();
 
     const submissionId = Number(state.submission_id);
     const partIndex = Number(state.part_index);
     const part = await db.getSubmissionPart(submissionId, partIndex);
     if (part === null) {
-      await ctx.reply(t("admin.alert.submission_not_found"));
-      return;
+      await db.clearAdminEditState(ctx.from.id);
+      return next();
     }
 
     const newText = messageText(ctx.message).trim();
@@ -733,7 +751,9 @@ ${t("admin.redraft.notice")}`
       return;
     }
 
-    await deleteMessageSafely(bot, ctx.chat.id, ctx.message.message_id, "draft source");
+    if (ctx.chat.type !== "private") {
+      await deleteMessageSafely(bot, ctx.chat.id, ctx.message.message_id, "draft source");
+    }
   });
 
   return composer;
@@ -802,12 +822,7 @@ function formatKilobytes(sizeBytes) {
   return `${Math.round(sizeBytes / 1024)} КБ`;
 }
 
-async function receiveAdminPartMessage({ ctx, bot, config, db, messageType, text, fileId }) {
-  const state = await db.getAdminEditState(ctx.from.id);
-  if (state === null || state.mode !== "add_part") {
-    return;
-  }
-
+async function receiveAdminPartMessage({ ctx, state, bot, config, db, messageType, text, fileId }) {
   const submissionId = Number(state.submission_id);
   const copiedMessageId = await copyNewPartMessage({ bot, config, submissionId, messageType, text, fileId });
   if (copiedMessageId === null) {
@@ -826,15 +841,12 @@ async function receiveAdminPartMessage({ ctx, bot, config, db, messageType, text
     fileId,
     adminMessageId: copiedMessageId,
   });
-  await deleteMessageSafely(bot, ctx.chat.id, ctx.message.message_id, "new part source");
+  if (ctx.chat.type !== "private") {
+    await deleteMessageSafely(bot, ctx.chat.id, ctx.message.message_id, "new part source");
+  }
 }
 
-async function receiveChannelPartMessage({ ctx, bot, config, db, messageType, text, fileId }) {
-  const state = await db.getLatestAdminEditState();
-  if (state === null || state.mode !== "add_part") {
-    return;
-  }
-
+async function receiveChannelPartMessage({ ctx, state, bot, config, db, messageType, text, fileId }) {
   const submissionId = Number(state.submission_id);
   const adminId = Number(state.admin_id);
   logger.info(
